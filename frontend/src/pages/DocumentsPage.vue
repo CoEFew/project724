@@ -55,7 +55,7 @@ const showModal = ref(false);
 let intervalId: number | undefined;
 
 async function fetchQuiz() {
-  const res = await api.get('/quiz');
+  const res = await api.get('/api/quiz');
   quizId.value = res.data.id;
   hints.value = res.data.hints;
   result.value = null;
@@ -79,7 +79,7 @@ async function fetchQuiz() {
 
 async function checkAnswer() {
   if (!quizId.value) return;
-  const res = await api.post('/quiz/check', { id: quizId.value, guess: guess.value.trim() });
+  const res = await api.post('/api/quiz/check', { id: quizId.value, guess: guess.value.trim() });
   result.value = res.data.correct;
 }
 
