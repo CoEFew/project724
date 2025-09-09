@@ -1,5 +1,11 @@
 <template>
-  <div class="flex flex-col items-center justify-start min-h-screen bg-transparent py-8">
+  <div class="flex flex-col items-center justify-start min-h-screen bg-transparent py-8 relative">
+    <div v-if="loading" class="fixed inset-0 bg-white bg-opacity-70 flex items-center justify-center z-50">
+      <div class="flex flex-col items-center">
+        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-4 animate-bounce" />
+        <span class="text-lg text-blue-700 font-semibold">กำลังโหลด...</span>
+      </div>
+    </div>
     <!-- กล่องเกม -->
     <div class="w-full max-w-lg bg-white bg-opacity-80 rounded-xl shadow-lg p-6 flex flex-col items-center">
       <div class="w-full mb-4">
@@ -133,6 +139,20 @@
 </template>
 
 <script setup lang="ts">
+import catwalk from '../assets/images/catwalk.png';
+import catwalk2 from '../assets/images/catwalk2.png';
+const loading = ref(true);
+const catwalkImages = [catwalk, catwalk2];
+const catwalkIndex = ref(0);
+let catwalkInterval: number | undefined;
+onMounted(() => {
+  catwalkInterval = setInterval(() => {
+    catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length;
+  }, 200);
+  setTimeout(() => {
+    loading.value = false;
+  }, 800);
+});
 import api from '../services/api';
 import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
