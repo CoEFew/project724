@@ -55,8 +55,8 @@
   :key="folder.name"
   class="relative overflow-visible flex flex-col items-center bg-white rounded-lg shadow-md p-6 hover:bg-blue-50 transition cursor-pointer"
   @click="goToFolder(folder.name)"
-  @mouseenter="folder.name === 'ANIMAL' ? animalImg = dog2 : folder.name === 'Pictures' ? pictureImg = picture2 : null"
-  @mouseleave="folder.name === 'ANIMAL' ? animalImg = dog : folder.name === 'Pictures' ? pictureImg = picture : null"
+  @mouseenter="folder.name === 'ANIMAL' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : null"
+  @mouseleave="folder.name === 'ANIMAL' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : null"
 >
 
   <template v-if="folder.name === 'ANIMAL'">
@@ -70,11 +70,11 @@
       />
     </div>
   </template>
-  <template v-else-if="folder.name === 'Pictures'">
+  <template v-else-if="folder.name === 'CatText'">
     <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
       <img
         :src="pictureImg"
-        alt="Pictures"
+        alt="CatText"
         class="absolute left-1/2 -top-20 -translate-x-1/2
                w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
                object-contain drop-shadow-lg pointer-events-none z-10"
@@ -111,7 +111,7 @@ import picture2 from '../assets/images/dog2.png';
 
 const folders = [
   { name: 'ANIMAL' },
-  { name: 'Pictures' },
+  { name: 'CatText' },
   { name: 'Music' },
   { name: 'Videos' }
 ];
@@ -124,8 +124,8 @@ const router = useRouter();
 const goToFolder = (name: string) => {
   if (name === 'ANIMAL') {
     router.push({ name: 'DocumentsPage' });
-  } else if (name === 'Pictures') {
-    router.push({ name: 'PicturesPage' });
+  } else if (name === 'CatText') {
+    router.push({ name: 'CatText' });
   } else if (name === 'Music') {
     router.push({ name: 'MusicPage' });
   } else if (name === 'Videos') {

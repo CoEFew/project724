@@ -10,7 +10,7 @@ import (
 func NewRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://project724-frontend.onrender.com"},
+		AllowedOrigins:   []string{"http://localhost:5173", "https://project724-frontend.onrender.com"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -22,5 +22,6 @@ func NewRouter() *chi.Mux {
 	r.Post("/api/quiz/check", handlers.CheckQuiz)
 	r.Post("/api/scores", handlers.SaveScore)
 	r.Get("/api/scores", handlers.GetScores)
+	r.Post("/api/chat", handlers.ChatHandler)
 	return r
 }
