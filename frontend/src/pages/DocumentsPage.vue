@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col items-center justify-start min-h-screen bg-transparent py-8 relative">
-    <div v-if="loading" class="fixed inset-0 bg-white bg-opacity-70 flex items-center justify-center z-50">
+  <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
       <div class="flex flex-col items-center">
         <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-4 animate-bounce" />
         <span class="text-lg text-blue-700 font-semibold">กำลังโหลด...</span>
