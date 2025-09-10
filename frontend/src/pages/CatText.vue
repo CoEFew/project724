@@ -2,13 +2,13 @@
 ปุ่มและช่องกรอกถูก disabled ไว้แล้ว + แสดงข้อความเตือนเพื่อกันค่าใช้จ่าย -->
 <!-- CatText.vue -->
 <template>
-  <div class="min-h-screen bg-paw-pattern flex flex-col">
+  <div class="min-h-screen bg-paw-pattern flex flex-col uppercase">
     <!-- Banner (เป็นบล็อกปกติ ไม่ absolute เพื่อไม่ให้ทับ) -->
     <header class="w-full">
       <div class="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 pt-4">
-        <div class="flex items-start gap-3 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-4 border border-yellow-200">
+  <div class="flex items-start gap-3 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-4 border border-yellow-200 uppercase">
           <img :src="paw" alt="paw" class="w-8 h-8 mt-0.5" />
-          <p class="text-sm sm:text-base leading-relaxed text-gray-800">
+          <p class="text-sm sm:text-base leading-relaxed text-gray-800 uppercase">
             ถ้าอยากคุยกับ น้อนนนแมว สนทบทุน ค่าเปียกแมวมาให้หน่อยยย!
             <br class="hidden sm:block" />
             ตอนนี้ไม่มีตัง ขอปิดฟังก์ชันไว้ก่อน
@@ -23,7 +23,7 @@
         <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6 border border-blue-100">
           <div class="flex items-center gap-2 mb-3">
             <img :src="catBadge" alt="cat" class="w-8 h-8" />
-            <h2 class="text-lg font-bold text-blue-700">Chat กับ น้อนแมว</h2>
+            <h2 class="text-lg font-bold text-blue-700 uppercase">Chat กับ น้อนแมว</h2>
           </div>
 
           <textarea
@@ -38,7 +38,7 @@
           <button
             @click="sendChat"
             :disabled="true"
-            class="px-4 py-3 bg-blue-400 text-white rounded-xl w-full font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+            class="px-4 py-3 bg-blue-400 text-white rounded-xl w-full font-semibold disabled:opacity-60 disabled:cursor-not-allowed uppercase"
             title="ปิดไว้ชั่วคราว"
           >
             ส่งข้อความ (ปิดไว้ชั่วคราว)
@@ -46,19 +46,19 @@
 
           <button
             @click="router.back()"
-            class="mt-3 px-4 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-xl w-full font-semibold transition"
+            class="mt-3 px-4 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-xl w-full font-semibold transition uppercase"
           >
             ย้อนกลับ
           </button>
 
-          <p class="mt-3 text-sm text-gray-600 flex items-start gap-2">
+          <p class="mt-3 text-sm text-gray-600 flex items-start gap-2 uppercase">
             <img :src="lock" alt="lock" class="w-4 h-4 mt-0.5" />
             ค่าเปียกแมว
           </p>
 
           <div
             v-if="chatResponse"
-            class="bg-gray-50 rounded-xl p-3 w-full text-gray-800 mt-3 border"
+            class="bg-gray-50 rounded-xl p-3 w-full text-gray-800 mt-3 border uppercase"
           >
             {{ chatResponse }}
           </div>
@@ -155,6 +155,7 @@ const catwalkIndex = ref(0);
 let catwalkInterval: number | undefined;
 
 onMounted(() => {
+  document.title = 'PETTEXT - CatText';
   catwalkInterval = setInterval(() => {
     catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length;
   }, 200);

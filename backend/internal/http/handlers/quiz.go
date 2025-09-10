@@ -1,15 +1,27 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	// "crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
-type Quiz struct {
+// ==== (1) Data & Config ====
+
+type QuizResp struct {
 	ID    string   `json:"id"`
 	Hints []string `json:"hints"`
+	Token string   `json:"token"` // HMAC(secret, answer|id|exp)
+	Exp   int64    `json:"exp"`   // unix seconds
 }
 
 var quizzes = []struct {
@@ -64,36 +76,113 @@ var quizzes = []struct {
 	{"นกฮูก", []string{"ตาโต", "ตื่นกลางคืน"}},
 }
 
+// ดึง secret จาก env (ตั้งค่าเช่น HMAC_SECRET=super-secret ใน .env หรือระบบ deploy)
+// ถ้าไม่ตั้งจะ fallback เป็นค่า default (แต่ควรตั้ง!)
+func getSecret() []byte {
+	sec := os.Getenv("HMAC_SECRET")
+	if sec == "" {
+		sec = "change-me-in-env"
+	}
+	return []byte(sec)
+}
+
+// สุ่ม id ปลอดภัย
+func randomID() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+// สร้าง HMAC(base64) จาก s
+func sign(secret []byte, s string) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(s))
+	sum := mac.Sum(nil)
+	return base64.StdEncoding.EncodeToString(sum)
+}
+
+// เทียบ HMAC
+func equalHMAC(a, b string) bool {
+	ab, _ := base64.StdEncoding.DecodeString(a)
+	bb, _ := base64.StdEncoding.DecodeString(b)
+	return hmac.Equal(ab, bb)
+}
+
+// ==== (2) Handlers ====
+
 func GetQuiz(w http.ResponseWriter, r *http.Request) {
-	rand.Seed(time.Now().UnixNano())
+	// เลือกคำถามแบบสุ่ม
+	now := time.Now()
+	rand.Seed(now.UnixNano())
 	idx := rand.Intn(len(quizzes))
-	quiz := quizzes[idx]
-	id := time.Now().Format("20060102150405") + ":" + quiz.Answer // ใช้ : เป็นตัวแบ่ง
-	resp := Quiz{
+	q := quizzes[idx]
+
+	// ทำ id แบบสุ่ม + ใส่วันหมดอายุ (เช่น 90 วินาที)
+	id, err := randomID()
+	if err != nil {
+		http.Error(w, "cannot generate id", http.StatusInternalServerError)
+		return
+	}
+	exp := now.Add(90 * time.Second).Unix()
+
+	// token = HMAC(secret, answer|id|exp)
+	secret := getSecret()
+	payload := q.Answer + "|" + id + "|" + strconvFormatInt(exp)
+	token := sign(secret, payload)
+
+	resp := QuizResp{
 		ID:    id,
-		Hints: quiz.Hints,
+		Hints: q.Hints,
+		Token: token,
+		Exp:   exp,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+type CheckReq struct {
+	ID    string `json:"id"`
+	Guess string `json:"guess"`
+	Token string `json:"token"`
+	Exp   int64  `json:"exp"`
 }
 
 func CheckQuiz(w http.ResponseWriter, r *http.Request) {
-	type Req struct {
-		ID    string `json:"id"`
-		Guess string `json:"guess"`
+	var req CheckReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
 	}
-	var req Req
-	json.NewDecoder(r.Body).Decode(&req)
-	parts := []rune(req.ID)
-	sepIdx := 0
-	for i, c := range parts {
-		if c == ':' {
-			sepIdx = i
-			break
-		}
+
+	// หมดอายุ?
+	if time.Now().Unix() > req.Exp {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"correct": false, "reason": "expired"})
+		return
 	}
-	answer := string(parts[sepIdx+1:])
-	result := req.Guess == answer
+
+	// เทียบ HMAC(secret, guess|id|exp) กับ token
+	secret := getSecret()
+	normalizedGuess := normalizeThai(req.Guess)
+	signGuess := sign(secret, normalizedGuess+"|"+req.ID+"|"+strconvFormatInt(req.Exp))
+	ok := equalHMAC(signGuess, req.Token)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"correct": result})
+	_ = json.NewEncoder(w).Encode(map[string]bool{"correct": ok})
+}
+
+// helper: ปรับรูปแบบตัวสะกด/ช่องว่าง (กันปัญหา Unicode ที่เทียบตรงๆ แล้วพลาด)
+func normalizeThai(s string) string {
+	// ตัดช่องว่างหัว/ท้าย + บีบช่องว่างซ้อน
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, "  ", " ")
+	// เพิ่มเติม: สามารถทำ NFC normalization ได้ถ้าต้องการ
+	// (Go มาตรฐานไม่มีใน stdlib ต้องใช้แพ็กเกจภายนอก เช่น "golang.org/x/text/unicode/norm")
+	return s
+}
+
+func strconvFormatInt(v int64) string {
+	return strconv.FormatInt(v, 10)
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8 relative min-h-screen overflow-visible">
+  <div class="p-8 relative min-h-screen overflow-visible uppercase">
     <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
       <div class="flex flex-col items-center">
         <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-4 animate-bounce" />
@@ -49,6 +49,9 @@
         </span>
       </div>
     </div>
+    <div class="w-full flex justify-center mb-6">
+  <h1 class="text-3xl font-bold text-blue-700 uppercase">PETTEXT</h1>
+    </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
     <div
   v-for="folder in folders"
@@ -87,7 +90,7 @@
     </svg>
   </template>
 
-  <span class="text-lg font-semibold text-gray-700 block md:hidden lg:block">{{ folder.name }}</span>
+  <span class="text-lg font-semibold text-gray-700 block md:hidden lg:block uppercase">{{ folder.name }}</span>
 </div>
 
     </div>
@@ -106,14 +109,14 @@ import catwalk from '../assets/images/catwalk.png';
 import catwalk2 from '../assets/images/catwalk2.png';
 import dog from '../assets/images/dog.png';
 import dog2 from '../assets/images/dog2.png';
-import picture from '../assets/images/dog.png';
-import picture2 from '../assets/images/dog2.png';
+import picture from '../assets/images/cat4.png';
+import picture2 from '../assets/images/cat2.png';
 
 const folders = [
   { name: 'ANIMAL' },
   { name: 'CatText' },
-  { name: 'Music' },
-  { name: 'Videos' }
+  { name: 'bird' },
+  { name: 'fish' }
 ];
 
 const beeImages = [bee, bee2];
@@ -126,9 +129,9 @@ const goToFolder = (name: string) => {
     router.push({ name: 'DocumentsPage' });
   } else if (name === 'CatText') {
     router.push({ name: 'CatText' });
-  } else if (name === 'Music') {
+  } else if (name === 'bird') {
     router.push({ name: 'MusicPage' });
-  } else if (name === 'Videos') {
+  } else if (name === 'fish') {
     router.push({ name: 'VideosPage' });
   }
 };
@@ -179,6 +182,7 @@ function handleCatClick() {
 }
 let catwalkInterval: number | undefined;
 onMounted(() => {
+  document.title = 'PETTEXT - Home';
   randomPosition();
   floatInterval = setInterval(randomPosition, 1500);
   catwalkInterval = setInterval(() => {
