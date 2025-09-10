@@ -14,7 +14,7 @@
       <header class="space-y-3">
         <h2 class="text-2xl font-extrabold text-center text-gray-800 tracking-wide">เก่งจริงก็ทายมาดิ!</h2>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div class="bg-blue-50 rounded-xl py-2.5 px-4 text-center">
             <div class="text-xs font-semibold text-blue-600 tracking-wide">คะแนน</div>
             <div class="mt-0.5 text-2xl font-bold text-blue-700 tabular-nums">{{ score }}</div>
@@ -22,6 +22,10 @@
           <div class="bg-gray-50 rounded-xl py-2.5 px-4 text-center">
             <div class="text-xs font-semibold text-gray-600 tracking-wide">เวลาคงเหลือ</div>
             <div class="mt-0.5 text-2xl font-bold text-gray-800 tabular-nums">{{ timer }} วินาที</div>
+          </div>
+          <div class="bg-violet-50 rounded-xl py-2.5 px-4 text-center">
+            <div class="text-xs font-semibold text-violet-600 tracking-wide">ระดับ</div>
+            <div class="mt-0.5 text-2xl font-bold text-violet-700 tabular-nums">Lv. {{ currentLevel }}</div>
           </div>
         </div>
 
@@ -206,8 +210,8 @@ let catwalkInterval: number | undefined
 
 // game states
 const quizId = ref('')
-const quizToken = ref('') // 👈 new: token จาก API
-const quizExp = ref(0)    // 👈 new: exp (unix seconds) จาก API
+const quizToken = ref('') // token จาก API
+const quizExp = ref(0)    // exp (unix seconds) จาก API
 
 const hints = ref<string[]>([])
 const guess = ref('')
@@ -228,6 +232,9 @@ const expiredNotice = ref(false)
 const answerInput = ref<HTMLInputElement | null>(null)
 const nameInput = ref<HTMLInputElement | null>(null)
 
+// Level: ทุก ๆ 30 คะแนน เพิ่มระดับ
+const currentLevel = computed(() => Math.floor(score.value / 10) + 1)
+
 // intervals
 let intervalId: number | undefined
 
@@ -238,10 +245,11 @@ async function fetchQuiz(isAuto = false) {
 
   expiredNotice.value = false
 
-  const res = await api.get('/api/quiz')
+  // ส่ง level ปัจจุบันไปขอชุดคำตามระดับ
+  const res = await api.get('/api/quiz', { params: { level: currentLevel.value } })
   quizId.value = res.data.id
-  quizToken.value = res.data.token   // 👈 เก็บ token
-  quizExp.value = res.data.exp       // 👈 เก็บ exp
+  quizToken.value = res.data.token
+  quizExp.value = res.data.exp
   hints.value = res.data.hints
 
   result.value = null
@@ -286,10 +294,9 @@ async function checkAnswer() {
     const res = await api.post('/api/quiz/check', {
       id: quizId.value,
       guess: guess.value.trim(),
-      token: quizToken.value, // 👈 ส่ง token กลับไป
-      exp: quizExp.value,     // 👈 ส่ง exp กลับไป
+      token: quizToken.value,
+      exp: quizExp.value,
     })
-    // ถ้า server ส่ง reason = expired มา ให้บอกและสุ่มคำใหม่
     if ((res.data as any)?.reason === 'expired') {
       expiredNotice.value = true
       setTimeout(() => fetchQuiz(true), 800)
@@ -298,7 +305,6 @@ async function checkAnswer() {
     }
     result.value = res.data.correct
   } catch (e) {
-    // ถ้า error network อะไร ให้คงสถานะเดิมไว้
     console.error(e)
   }
 }
@@ -306,6 +312,7 @@ async function checkAnswer() {
 watch(result, (val, oldVal) => {
   if (val === true && oldVal !== true) {
     score.value++
+    // ถ้าข้าม 30/60/... จะได้คำจาก level ใหม่อัตโนมัติ เพราะ fetchQuiz อ้าง currentLevel
     setTimeout(() => fetchQuiz(true), 1000)
   }
 })

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"crypto/hmac"
-	// "crypto/rand"
+	crand "crypto/rand" // ใช้สำหรับสุ่มไบต์ปลอดภัย
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,10 +24,13 @@ type QuizResp struct {
 	Exp   int64    `json:"exp"`   // unix seconds
 }
 
-var quizzes = []struct {
+type QA struct {
 	Answer string
 	Hints  []string
-}{
+}
+
+// -------- Level 1 (ชุดง่าย - ของเดิม) --------
+var quizzesEasy = []QA{
 	{"แมว", []string{"สัตว์เลี้ยงที่ร้องเหมียว", "มีหนวดและชอบกินปลา"}},
 	{"หมา", []string{"สัตว์เลี้ยงที่เห่า", "เป็นเพื่อนที่ซื่อสัตย์"}},
 	{"ช้าง", []string{"มีงวง", "ตัวใหญ่และมีงา"}},
@@ -76,8 +79,47 @@ var quizzes = []struct {
 	{"นกฮูก", []string{"ตาโต", "ตื่นกลางคืน"}},
 }
 
-// ดึง secret จาก env (ตั้งค่าเช่น HMAC_SECRET=super-secret ใน .env หรือระบบ deploy)
-// ถ้าไม่ตั้งจะ fallback เป็นค่า default (แต่ควรตั้ง!)
+// -------- Level 2+ (ชุดยาก - ใหม่ 30 คำ) --------
+var quizzesHard = []QA{
+	{"เลียงผา", []string{"อยู่ภูเขาสูงผาชัน", "กระโดดเหวได้คล่อง"}},
+	{"ละมั่ง", []string{"กวางเอเชีย", "เขาโค้งเรียวงาม"}},
+	{"เก้ง", []string{"กวางตัวเล็ก", "บางท้องถิ่นร้องเหมือนเห่า"}},
+	{"กระทิง", []string{"วัวป่าตัวใหญ่", "เขาดำโค้งทรงพลัง"}},
+	{"สมเสร็จ", []string{"ลายขาวดำ", "จมูกยาวคล้ายงวง"}},
+	{"ชะมด", []string{"ต่อมกลิ่นใช้ทำเครื่องหอม", "หากินกลางคืน"}},
+	{"อีเห็น", []string{"คล้ายชะมด", "มีลายแถบตามตัว"}},
+	{"นิ่ม", []string{"เกล็ดแข็งทั่วตัว", "ม้วนตัวป้องกันภัย"}},
+	{"นาก", []string{"กึ่งบกน้ำ", "ชอบจับปลาเล่น"}},
+	{"เสือดาว", []string{"ลายจุดโรเซต", "ปีนต้นไม้เก่ง"}},
+	{"เสือชีตาห์", []string{"วิ่งเร็วสุดบนบก", "มีรอยเส้นน้ำตาดำ"}},
+	{"เฟนเนก", []string{"สุนัขจิ้งจอกทะเลทราย", "หูใหญ่มาก"}},
+	{"ลามา", []string{"ญาติอัลปากา", "ถิ่นภูเขาแอนดีส"}},
+	{"อัลปากา", []string{"ขนฟูนุ่ม", "ไม่พอใจชอบพ่นน้ำลาย"}},
+	{"ไคแมน", []string{"ญาติจระเข้ตัวเล็ก", "ลุ่มน้ำอเมซอน"}},
+	{"โอคาปิ", []string{"ญาติกับยีราฟ", "ขาลายเหมือนม้าลาย"}},
+	{"ไอบริกซ์", []string{"แพะภูเขา", "เขายาวบิดเป็นเกลียว"}},
+	{"วอมแบต", []string{"กระเป๋าหน้าท้อง", "อุจจาระเป็นสี่เหลี่ยม"}},
+	{"โคอาติ", []string{"จมูกยาวโค้ง", "อยู่ทวีปอเมริกา"}},
+	{"คาปิบารา", []string{"หนูยักษ์", "ชอบลงน้ำแช่"}},
+	{"อาร์มาดิลโล", []string{"เกราะแข็ง", "ม้วนตัวกลม"}},
+	{"พิรันยา", []string{"ฟันแหลมคม", "หากินเป็นฝูง"}},
+	{"คาสโซวารี", []string{"นกใหญ่คอสีฟ้า", "มีหมวกแข็งอันตราย"}},
+	{"กิ้งก่าใบไม้", []string{"พรางตัวสุดเนียน", "ตัวแบนเหมือนใบไม้"}},
+	{"แพนเธอร์", []string{"เสือสีดำเมลานิสติก", "ลายจุดซ่อนอยู่"}},
+	{"คูดู", []string{"เขายาวบิดเป็นเกลียว", "อัฟริกา"}},
+	{"ชิมแปนซี", []string{"ฉลาดใช้เครื่องมือ", "สังคมซับซ้อน"}},
+	{"อุรังอุตัง", []string{"ลิงใหญ่สีส้ม", "แขนยาวอยู่คบไม้"}},
+	{"วาฬเพชฌฆาต", []string{"โอร์ก้า", "นักล่าทะเลยอดฝีมือ"}},
+	{"ควอกกา", []string{"หน้าตายิ้ม", "เกาะทางตะวันตกออสเตรเลีย"}},
+}
+
+// จัดกลุ่มตามระดับ (รองรับอนาคต)
+var quizzesByLevel = map[int][]QA{
+	1: quizzesEasy,
+	2: quizzesHard,
+}
+
+// ดึง secret จาก env (ตั้งค่าเช่น HMAC_SECRET=super-secret)
 func getSecret() []byte {
 	sec := os.Getenv("HMAC_SECRET")
 	if sec == "" {
@@ -89,7 +131,7 @@ func getSecret() []byte {
 // สุ่ม id ปลอดภัย
 func randomID() (string, error) {
 	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
+	if _, err := crand.Read(buf); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
@@ -112,14 +154,38 @@ func equalHMAC(a, b string) bool {
 
 // ==== (2) Handlers ====
 
+func poolForLevel(level int) []QA {
+	// กติกาตามที่ตกลง: ใช้ชุดยากตั้งแต่ level >= 4
+	tier := 1
+	if level >= 4 {
+		tier = 2
+	}
+	if p, ok := quizzesByLevel[tier]; ok && len(p) > 0 {
+		return p
+	}
+	// fallback ปลอดภัย
+	return quizzesEasy
+}
+
 func GetQuiz(w http.ResponseWriter, r *http.Request) {
-	// เลือกคำถามแบบสุ่ม
+	// อ่าน level จาก query
+	level := 1
+	if lv := r.URL.Query().Get("level"); lv != "" {
+		if n, err := strconv.Atoi(lv); err == nil && n > 0 {
+			level = n
+		}
+	}
+
+	// ✅ ใช้ quizzesByLevel ผ่าน helper
+	pool := poolForLevel(level)
+
+	// สุ่มคำถามจาก pool
 	now := time.Now()
 	rand.Seed(now.UnixNano())
-	idx := rand.Intn(len(quizzes))
-	q := quizzes[idx]
+	idx := rand.Intn(len(pool))
+	q := pool[idx]
 
-	// ทำ id แบบสุ่ม + ใส่วันหมดอายุ (เช่น 90 วินาที)
+	// ทำ id/token/exp เหมือนเดิม...
 	id, err := randomID()
 	if err != nil {
 		http.Error(w, "cannot generate id", http.StatusInternalServerError)
@@ -127,7 +193,6 @@ func GetQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 	exp := now.Add(90 * time.Second).Unix()
 
-	// token = HMAC(secret, answer|id|exp)
 	secret := getSecret()
 	payload := q.Answer + "|" + id + "|" + strconvFormatInt(exp)
 	token := sign(secret, payload)
@@ -175,11 +240,8 @@ func CheckQuiz(w http.ResponseWriter, r *http.Request) {
 
 // helper: ปรับรูปแบบตัวสะกด/ช่องว่าง (กันปัญหา Unicode ที่เทียบตรงๆ แล้วพลาด)
 func normalizeThai(s string) string {
-	// ตัดช่องว่างหัว/ท้าย + บีบช่องว่างซ้อน
 	s = strings.TrimSpace(s)
 	s = strings.ReplaceAll(s, "  ", " ")
-	// เพิ่มเติม: สามารถทำ NFC normalization ได้ถ้าต้องการ
-	// (Go มาตรฐานไม่มีใน stdlib ต้องใช้แพ็กเกจภายนอก เช่น "golang.org/x/text/unicode/norm")
 	return s
 }
 

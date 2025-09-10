@@ -128,8 +128,8 @@ import picture2 from '../assets/images/cat2.png'
 const folders = [
   { name: 'ANIMAL' },
   { name: 'CatText' },
-  { name: 'bird' },
-  { name: 'fish' }
+  // { name: 'bird' },
+  // { name: 'fish' }
 ]
 
 const beeImages = [bee, bee2]
