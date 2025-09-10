@@ -191,7 +191,7 @@ func GetQuiz(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cannot generate id", http.StatusInternalServerError)
 		return
 	}
-	exp := now.Add(90 * time.Second).Unix()
+	exp := now.Add(60 * time.Second).Unix()
 
 	secret := getSecret()
 	payload := q.Answer + "|" + id + "|" + strconvFormatInt(exp)
@@ -247,4 +247,52 @@ func normalizeThai(s string) string {
 
 func strconvFormatInt(v int64) string {
 	return strconv.FormatInt(v, 10)
+}
+
+// รวมคำตอบทั้งหมด (ทั้ง easy+hard) ไว้ให้ค้นย้อนจาก token
+func allAnswers() []string {
+	out := make([]string, 0, len(quizzesEasy)+len(quizzesHard))
+	for _, q := range quizzesEasy {
+		out = append(out, q.Answer)
+	}
+	for _, q := range quizzesHard {
+		out = append(out, q.Answer)
+	}
+	return out
+}
+
+type RevealReq struct {
+	ID    string `json:"id"`
+	Token string `json:"token"`
+	Exp   int64  `json:"exp"`
+}
+
+func RevealQuiz(w http.ResponseWriter, r *http.Request) {
+	var req RevealReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	// ถ้ายังไม่ถึงเวลาเฉลย
+	if time.Now().Unix() < req.Exp { // 👈 ใช้ < ไม่ใช้ <=
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"answer": "",
+			"error":  "not_expired",
+		})
+		return
+	}
+
+	secret := getSecret()
+	var found string
+	for _, a := range allAnswers() {
+		if equalHMAC(sign(secret, a+"|"+req.ID+"|"+strconvFormatInt(req.Exp)), req.Token) {
+			found = a
+			break
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"answer": found})
 }

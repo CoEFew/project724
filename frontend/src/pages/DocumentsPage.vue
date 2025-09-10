@@ -154,39 +154,117 @@
       </ul>
     </section>
 
-    <!-- โมดัล: หมดเวลา + บันทึกคะแนน -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg">
-        <h3 class="text-2xl font-extrabold text-red-600 mb-2 text-center">หมดเวลา!</h3>
-        <p class="text-center text-gray-700 mb-1">คะแนนของคุณ: <span class="font-bold tabular-nums">{{ finalScore }}</span></p>
-        <p class="text-center text-gray-500 text-sm mb-6">* จะเริ่มใหม่หลังจากบันทึก หรือกดเริ่มใหม่</p>
+    <!-- โมดัล: หมดเวลา + บันทึกคะแนน + เฉลย + เลเวล (ดีไซน์ใหม่) -->
+    <div
+      v-if="showModal"
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="timeoutTitle"
+      aria-describedby="timeoutDesc"
+    >
+      <div class="w-full max-w-xl">
+        <div class="relative bg-white rounded-3xl shadow-2xl ring-1 ring-gray-100 overflow-hidden">
+          <!-- Top banner -->
+          <div class="bg-[#111827] px-6 py-5 text-white">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <!-- clock icon -->
+                <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 7v5l3 2"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 id="timeoutTitle" class="text-xl font-extrabold tracking-wide">หมดเวลา!</h3>
+                <p id="timeoutDesc" class="text-white/90 text-sm">รอบนี้จบแล้ว มาดูผลกัน แล้วเริ่มรอบใหม่ได้เลย</p>
+              </div>
+            </div>
+          </div>
 
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="playerName">กรอกชื่อผู้เล่น</label>
-        <input
-          id="playerName"
-          ref="nameInput"
-          v-model="playerName"
-          type="text"
-          placeholder="เช่น น้องแมว"
-          class="mb-5 px-4 py-2.5 border border-gray-300 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400/70"
-        />
+          <!-- Body -->
+          <div class="px-6 pt-5 pb-6 space-y-5">
+            <!-- Summary cards -->
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+                <div class="text-xs font-semibold text-blue-600">คะแนนรวม</div>
+                <div class="mt-1 text-3xl font-extrabold text-blue-700 tabular-nums">{{ finalScore }}</div>
+              </div>
+              <div class="rounded-2xl border border-violet-100 bg-violet-50/60 px-4 py-3">
+                <div class="text-xs font-semibold text-violet-600">ระดับที่ไปถึง</div>
+                <div class="mt-1 text-3xl font-extrabold text-violet-700">Lv. {{ finalLevel }}</div>
+              </div>
+            </div>
 
-        <div class="flex gap-2">
-          <button
-            @click="saveScore"
-            class="px-6 py-3 bg-green-600 text-white rounded-xl font-bold w-1/2 hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="!playerName.trim()"
-            type="button"
-          >
-            บันทึก
-          </button>
-          <button
-            @click="restartGame"
-            class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold w-1/2 hover:bg-blue-700 transition"
-            type="button"
-          >
-            เริ่มใหม่
-          </button>
+            <!-- Answer reveal -->
+            <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+              <div class="flex items-center gap-2">
+                <svg viewBox="0 0 24 24" class="h-5 w-5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <div class="text-sm font-semibold text-emerald-800">เฉลยข้อสุดท้าย</div>
+              </div>
+              <div class="mt-2">
+                <template v-if="revealedAnswer">
+                  <span class="inline-flex items-center gap-2 text-emerald-800 font-bold text-lg">
+                    {{ revealedAnswer }}
+                    <span class="inline-block rounded-full bg-emerald-600 text-white text-xs px-2 py-0.5">ยืนยันแล้ว</span>
+                  </span>
+                </template>
+                <template v-else>
+                  <div class="h-6 w-44 rounded-full bg-emerald-200 animate-pulse"></div>
+                  <p class="text-xs text-emerald-700 mt-1">กำลังดึงเฉลย…</p>
+                </template>
+              </div>
+            </div>
+
+            <!-- Name + actions -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="playerName">กรอกชื่อเพื่อบันทึกสถิติ</label>
+              <input
+                id="playerName"
+                ref="nameInput"
+                v-model="playerName"
+                type="text"
+                placeholder="เช่น น้องแมว"
+                class="px-4 py-2.5 border border-gray-300 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400/70"
+              />
+              <p class="text-xs text-gray-500 mt-1">* คุณสามารถเริ่มรอบใหม่ได้ทันที หรือบันทึกคะแนนก่อน</p>
+
+              <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                <button
+                  @click="saveScore"
+                  class="inline-flex justify-center items-center px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-1/2"
+                  :disabled="!playerName.trim()"
+                  type="button"
+                >
+                  <svg viewBox="0 0 24 24" class="h-5 w-5 mr-2" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <path d="M17 21v-8H7v8"></path>
+                    <path d="M7 3v5h8"></path>
+                  </svg>
+                  บันทึกคะแนน
+                </button>
+                <button
+                  @click="restartGame"
+                  class="inline-flex justify-center items-center px-5 py-3 rounded-xl bg-white text-blue-700 font-semibold border border-blue-200 hover:bg-blue-50 transition w-full sm:w-1/2"
+                  type="button"
+                >
+                  <svg viewBox="0 0 24 24" class="h-5 w-5 mr-2" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                    <path d="M21 3v7h-7"></path>
+                  </svg>
+                  เริ่มรอบใหม่
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- subtle bottom bar -->
+          <div class="px-6 py-3 bg-gray-50/60 border-t border-gray-100 text-xs text-gray-500">
+            เคล็ดลับ: ทุก ๆ 10 คะแนน เลเวลจะเพิ่มขึ้น (ตั้งแต่เลเวล 4 เป็นต้นไปจะเป็นชุดคำยาก)
+          </div>
         </div>
       </div>
     </div>
@@ -227,12 +305,14 @@ const maxChange = 5
 const playerName = ref('')
 const savedScores = ref<{ name: string; score: number }[]>([])
 const finalScore = ref(0)
+const finalLevel = ref(1)
 const expiredNotice = ref(false)
+const revealedAnswer = ref('')
 
 const answerInput = ref<HTMLInputElement | null>(null)
 const nameInput = ref<HTMLInputElement | null>(null)
 
-// Level: ทุก ๆ 30 คะแนน เพิ่มระดับ
+// Level: ทุก ๆ 10 คะแนน เพิ่มระดับ (Lv.1–3 ใช้ชุดง่าย, Lv.4+ ใช้ชุดยาก)
 const currentLevel = computed(() => Math.floor(score.value / 10) + 1)
 
 // intervals
@@ -244,6 +324,7 @@ async function fetchQuiz(isAuto = false) {
   if (changeCount.value >= maxChange && !isAuto) return
 
   expiredNotice.value = false
+  revealedAnswer.value = '' // เคลียร์เฉลยของข้อก่อนหน้า
 
   // ส่ง level ปัจจุบันไปขอชุดคำตามระดับ
   const res = await api.get('/api/quiz', { params: { level: currentLevel.value } })
@@ -267,7 +348,9 @@ async function fetchQuiz(isAuto = false) {
       clearInterval(intervalId as number)
       result.value = false
       finalScore.value = score.value
+      finalLevel.value = currentLevel.value
       showModal.value = true
+      revealAnswer() // ดึงเฉลยของข้อนี้ (จะรอจน exp ถึงก่อน)
       nextTick(() => nameInput.value?.focus())
     }
   }, 1000)
@@ -299,8 +382,14 @@ async function checkAnswer() {
     })
     if ((res.data as any)?.reason === 'expired') {
       expiredNotice.value = true
-      setTimeout(() => fetchQuiz(true), 800)
-      result.value = null
+      if (intervalId) clearInterval(intervalId as number)
+      timer.value = 0
+      result.value = false
+      finalScore.value = score.value
+      finalLevel.value = currentLevel.value
+      showModal.value = true
+      revealAnswer()
+      nextTick(() => nameInput.value?.focus())
       return
     }
     result.value = res.data.correct
@@ -312,7 +401,6 @@ async function checkAnswer() {
 watch(result, (val, oldVal) => {
   if (val === true && oldVal !== true) {
     score.value++
-    // ถ้าข้าม 30/60/... จะได้คำจาก level ใหม่อัตโนมัติ เพราะ fetchQuiz อ้าง currentLevel
     setTimeout(() => fetchQuiz(true), 1000)
   }
 })
@@ -329,10 +417,33 @@ function showHint() {
   }
 }
 
+// ดึงเฉลย (อนุญาตหลัง exp เท่านั้น)
+async function revealAnswer() {
+  if (!quizId.value || !quizToken.value || !quizExp.value) return
+  const now = Math.floor(Date.now() / 1000)
+  const delay = Math.max(0, (quizExp.value - now) * 1000 + 50)
+
+  setTimeout(async () => {
+    try {
+      const res = await api.post('/api/quiz/reveal', {
+        id: quizId.value,
+        token: quizToken.value,
+        exp: quizExp.value,
+      })
+      revealedAnswer.value = (res.data && res.data.answer) || ''
+    } catch (e) {
+      console.error(e)
+      revealedAnswer.value = ''
+    }
+  }, delay)
+}
+
 async function restartGame() {
   score.value = 0
   finalScore.value = 0
+  finalLevel.value = 1
   changeCount.value = 0
+  revealedAnswer.value = ''
   showModal.value = false
   await fetchQuiz()
   await loadScores()
@@ -347,7 +458,9 @@ async function saveScore() {
     // reset for new game
     score.value = 0
     finalScore.value = 0
+    finalLevel.value = 1
     changeCount.value = 0
+    revealedAnswer.value = ''
     showModal.value = false
     playerName.value = ''
     fetchQuiz()

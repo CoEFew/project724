@@ -19,6 +19,7 @@ func NewRouter() *chi.Mux {
 	}))
 	r.Get("/health", handlers.Health)
 	r.Get("/api/quiz", handlers.GetQuiz)
+	r.Post("/api/quiz/reveal", handlers.RevealQuiz)
 	r.Post("/api/quiz/check", handlers.CheckQuiz)
 	r.Post("/api/scores", handlers.SaveScore)
 	r.Get("/api/scores", handlers.GetScores)
