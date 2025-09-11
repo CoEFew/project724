@@ -1,0 +1,124 @@
+package db
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var pool *pgxpool.Pool
+
+var ErrNoQuiz = errors.New("no quiz")
+
+func Init(ctx context.Context) error {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		return fmt.Errorf("DATABASE_URL is empty")
+	}
+
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return err
+	}
+	cfg.MaxConns = 5
+	cfg.MinConns = 0
+	cfg.MaxConnLifetime = time.Hour
+	cfg.HealthCheckPeriod = 30 * time.Second
+
+	p, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	if err := p.Ping(ctx); err != nil {
+		p.Close()
+		return err
+	}
+	pool = p
+	return nil
+}
+
+func Close() {
+	if pool != nil {
+		pool.Close()
+	}
+}
+
+type ScoreRow struct {
+	Name      string
+	Score     int
+	CreatedAt time.Time
+}
+
+func InsertScore(ctx context.Context, name string, score int) error {
+	_, err := pool.Exec(ctx, `INSERT INTO public.scores(name, score) VALUES ($1, $2)`, name, score)
+	return err
+}
+
+func GetTopScores(ctx context.Context, limit int) ([]ScoreRow, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT name, score, created_at
+		FROM public.scores
+		ORDER BY score DESC, created_at ASC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []ScoreRow
+	for rows.Next() {
+		var s ScoreRow
+		if err := rows.Scan(&s.Name, &s.Score, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// ===== Quizzes =====
+
+type QuizRow struct {
+	Answer string
+	Hint1  string
+	Hint2  string
+	Tier   int
+}
+
+func GetAllAnswers(ctx context.Context) ([]string, error) {
+	rows, err := pool.Query(ctx, `SELECT answer FROM public.quizzes WHERE active`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func GetRandomQuizByTier(ctx context.Context, tier int) (QuizRow, error) {
+	var q QuizRow
+	err := pool.QueryRow(ctx, `
+		SELECT answer, hint1, hint2, tier
+		FROM public.quizzes
+		WHERE active AND tier = $1
+		ORDER BY random()
+		LIMIT 1
+	`, tier).Scan(&q.Answer, &q.Hint1, &q.Hint2, &q.Tier)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return q, ErrNoQuiz
+	}
+	return q, err
+}
