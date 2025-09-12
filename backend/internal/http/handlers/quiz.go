@@ -65,8 +65,11 @@ func equalHMAC(a, b string) bool {
 
 func poolTierForLevel(level int) int {
 	// ใช้ชุดยากตั้งแต่ level >= 4
-	if level >= 4 {
+	if level >= 4 && level < 10 {
 		return 2
+	}
+	if level >= 10 {
+		return 3
 	}
 	return 1
 }
