@@ -31,52 +31,35 @@
 
         <!-- Progress bar เวลา -->
         <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            class="h-full bg-blue-500 transition-all duration-300"
-            :style="{ width: timerPercent + '%' }"
-            role="progressbar"
-            :aria-valuenow="timer"
-            aria-label="ตัวนับเวลา"
-          />
+          <div class="h-full bg-blue-500 transition-all duration-300" :style="{ width: timerPercent + '%' }"
+            role="progressbar" :aria-valuenow="timer" aria-label="ตัวนับเวลา" />
         </div>
       </header>
 
       <!-- แบบฟอร์มตอบ -->
       <form class="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-2" @submit.prevent="handleSubmit">
-        <input
-          ref="answerInput"
-          v-model="guess"
-          type="text"
-          placeholder="พิมพ์คำตอบที่นี่..."
+        <input ref="answerInput" v-model="guess" type="text" placeholder="พิมพ์คำตอบที่นี่..."
           class="border border-gray-300 rounded-xl px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-blue-400 w-full"
-          :disabled="showModal"
-          autocomplete="off"
-        />
-        <button
-          type="submit"
+          :disabled="showModal" autocomplete="off" />
+        <button type="submit"
           class="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-          :disabled="showModal || !guess.trim()"
-        >
+          :disabled="showModal || !guess.trim()">
           ส่งคำตอบ
         </button>
-       <button
-  type="button"
-  @click="showHint"
-  class="relative px-4 py-2.5 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-  :disabled="showModal || hintCount >= maxHints"
->
-  <span class="absolute -top-2 -right-3 bg-white text-yellow-700 rounded-full px-2 py-0.5 text-xs font-bold shadow">
-    {{ Math.min(hintCount, maxHints) }}/{{ maxHints }}
-  </span>
-  คำใบ้
-</button>
-        <button
-          type="button"
-          @click="() => fetchQuiz()"
+        <button type="button" @click="showHint"
+          class="relative px-4 py-2.5 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+          :disabled="showModal || hintCount >= maxHints">
+          <span
+            class="absolute -top-2 -right-3 bg-white text-yellow-700 rounded-full px-2 py-0.5 text-xs font-bold shadow">
+            {{ Math.min(hintCount, maxHints) }}/{{ maxHints }}
+          </span>
+          คำใบ้
+        </button>
+        <button type="button" @click="() => fetchQuiz()"
           class="relative px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-          :disabled="showModal || changeCount >= maxChange"
-        >
-          <span class="absolute -top-2 -right-3 bg-white text-green-700 rounded-full px-2 py-0.5 text-xs font-bold shadow">
+          :disabled="showModal || changeCount >= maxChange">
+          <span
+            class="absolute -top-2 -right-3 bg-white text-green-700 rounded-full px-2 py-0.5 text-xs font-bold shadow">
             {{ changeCount }}/{{ maxChange }}
           </span>
           เปลี่ยนคำ
@@ -90,28 +73,28 @@
       </div>
 
       <!-- แจ้งเตือนหมดอายุ token -->
-      <div v-if="expiredNotice" class="text-center text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+      <div v-if="expiredNotice"
+        class="text-center text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
         หมดเวลาตอบสำหรับคำนี้แล้ว ระบบจะสุ่มคำใหม่ให้อัตโนมัติ
       </div>
 
       <!-- คำใบ้ -->
       <div class="flex flex-wrap items-center justify-center gap-2">
-        <span v-if="hint1" class="inline-flex items-center gap-2 bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-full text-sm">
+        <span v-if="hint1"
+          class="inline-flex items-center gap-2 bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-full text-sm">
           <strong class="font-semibold">คำใบ้ 1:</strong> <span>{{ hint1 }}</span>
         </span>
-        <span v-if="hint2" class="inline-flex items-center gap-2 bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-full text-sm">
+        <span v-if="hint2"
+          class="inline-flex items-center gap-2 bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-full text-sm">
           <strong class="font-semibold">คำใบ้ 2:</strong> <span>{{ hint2 }}</span>
         </span>
       </div>
 
       <!-- แถบปุ่มล่าง -->
       <div class="pt-2">
-        <button
-          @click="goBack"
+        <button @click="goBack"
           class="w-full sm:w-auto px-4 py-2.5 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="showModal"
-          type="button"
-        >
+          :disabled="showModal" type="button">
           ย้อนกลับ
         </button>
       </div>
@@ -121,12 +104,8 @@
     <section class="w-full max-w-xl mx-auto mt-6 bg-white/90 rounded-2xl shadow p-5">
       <div class="flex items-center justify-between">
         <h4 class="text-lg font-bold text-blue-700">สถิติผู้เล่น TOP 10</h4>
-        <button
-          @click="loadScores"
-          class="text-xs px-3 py-1 border rounded-lg hover:bg-gray-50 transition"
-          title="รีเฟรชสถิติ"
-          type="button"
-        >
+        <button @click="loadScores" class="text-xs px-3 py-1 border rounded-lg hover:bg-gray-50 transition"
+          title="รีเฟรชสถิติ" type="button">
           รีเฟรช
         </button>
       </div>
@@ -136,11 +115,8 @@
       </p>
 
       <ul v-else class="mt-2 divide-y">
-        <li
-          v-for="(item, idx) in savedScores"
-          :key="item.name + '_' + item.score + '_' + idx"
-          class="py-2 flex items-center justify-between text-sm"
-        >
+        <li v-for="(item, idx) in savedScores" :key="item.name + '_' + item.score + '_' + idx"
+          class="py-2 flex items-center justify-between text-sm">
           <div class="flex items-center gap-2 min-w-0">
             <span class="w-6 text-center">
               <template v-if="idx === 0">🥇</template>
@@ -158,14 +134,8 @@
     </section>
 
     <!-- โมดัล: หมดเวลา + บันทึกคะแนน + เฉลย + เลเวล (ดีไซน์ใหม่) -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="timeoutTitle"
-      aria-describedby="timeoutDesc"
-    >
+    <div v-if="showModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+      role="dialog" aria-modal="true" aria-labelledby="timeoutTitle" aria-describedby="timeoutDesc">
       <div class="w-full max-w-xl">
         <div class="relative bg-white rounded-3xl shadow-2xl ring-1 ring-gray-100 overflow-hidden">
           <!-- Top banner -->
@@ -202,7 +172,8 @@
             <!-- Answer reveal -->
             <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
               <div class="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" class="h-5 w-5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24" class="h-5 w-5 text-emerald-700" fill="none" stroke="currentColor"
+                  stroke-width="2">
                   <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
@@ -212,7 +183,8 @@
                 <template v-if="revealedAnswer">
                   <span class="inline-flex items-center gap-2 text-emerald-800 font-bold text-lg">
                     {{ revealedAnswer }}
-                    <span class="inline-block rounded-full bg-emerald-600 text-white text-xs px-2 py-0.5">ยืนยันแล้ว</span>
+                    <span
+                      class="inline-block rounded-full bg-emerald-600 text-white text-xs px-2 py-0.5">ยืนยันแล้ว</span>
                   </span>
                 </template>
                 <template v-else>
@@ -224,36 +196,31 @@
 
             <!-- Name + actions -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1" for="playerName">กรอกชื่อเพื่อบันทึกสถิติ</label>
-              <input
-                id="playerName"
-                ref="nameInput"
-                v-model="playerName"
-                type="text"
-                placeholder="เช่น น้องแมว"
-                class="px-4 py-2.5 border border-gray-300 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400/70"
-              />
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                for="playerName">กรอกชื่อเพื่อบันทึกสถิติ</label>
+              <input id="playerName" ref="nameInput" v-model="playerName" type="text" placeholder="เช่น น้องแมว"
+                class="px-4 py-2.5 border border-gray-300 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400/70" />
               <p class="text-xs text-gray-500 mt-1">* คุณสามารถเริ่มรอบใหม่ได้ทันที หรือบันทึกคะแนนก่อน</p>
 
               <div class="mt-4 flex flex-col sm:flex-row gap-2">
-                <button
-                  @click="saveScore"
+                <button @click="saveScore"
                   class="inline-flex justify-center items-center px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-1/2"
-                  :disabled="!playerName.trim()"
-                  type="button"
-                >
-                  <svg viewBox="0 0 24 24" class="h-5 w-5 mr-2" fill="none" stroke="currentColor" stroke-width="2">
+                  :disabled="!playerName.trim() || isSaving" :aria-busy="isSaving ? 'true' : 'false'" type="button">
+                  <svg v-if="!isSaving" viewBox="0 0 24 24" class="h-5 w-5 mr-2" fill="none" stroke="currentColor"
+                    stroke-width="2">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                     <path d="M17 21v-8H7v8"></path>
                     <path d="M7 3v5h8"></path>
                   </svg>
-                  บันทึกคะแนน
+                  <span v-else
+                    class="mr-2 inline-block animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                  {{ isSaving ? 'กำลังบันทึก...' : 'บันทึกคะแนน' }}
                 </button>
-                <button
-                  @click="restartGame"
+
+
+                <button @click="restartGame"
                   class="inline-flex justify-center items-center px-5 py-3 rounded-xl bg-white text-blue-700 font-semibold border border-blue-200 hover:bg-blue-50 transition w-full sm:w-1/2"
-                  type="button"
-                >
+                  type="button">
                   <svg viewBox="0 0 24 24" class="h-5 w-5 mr-2" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
                     <path d="M21 3v7h-7"></path>
@@ -311,6 +278,7 @@ const finalScore = ref(0)
 const finalLevel = ref(1)
 const expiredNotice = ref(false)
 const revealedAnswer = ref('')
+const isSaving = ref(false)
 
 const answerInput = ref<HTMLInputElement | null>(null)
 const nameInput = ref<HTMLInputElement | null>(null)
@@ -482,7 +450,10 @@ async function restartGame() {
 }
 
 async function saveScore() {
-  if (playerName.value.trim()) {
+  if (!playerName.value.trim() || isSaving.value) return
+
+  isSaving.value = true
+  try {
     const scoreToSave = finalScore.value || score.value
     await api.post('/api/scores', { name: playerName.value.trim(), score: scoreToSave })
     await loadScores()
@@ -496,8 +467,13 @@ async function saveScore() {
     showModal.value = false
     playerName.value = ''
     fetchQuiz()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSaving.value = false
   }
 }
+
 
 async function loadScores() {
   const res = await api.get('/api/scores')
