@@ -22,10 +22,17 @@ import (
 // ==== (1) Data & Config ====
 
 type QuizResp struct {
-	ID    string   `json:"id"`
-	Hints []string `json:"hints"`
-	Token string   `json:"token"` // HMAC(secret, answer|id|exp)
-	Exp   int64    `json:"exp"`   // unix seconds
+	ID        string `json:"id"`
+	HintCount int    `json:"hintCount"`
+	Token     string `json:"token"` // HMAC(secret, answer|id|exp)
+	Exp       int64  `json:"exp"`   // unix seconds
+}
+
+type HintReq struct {
+	ID    string `json:"id"`
+	Token string `json:"token"`
+	Exp   int64  `json:"exp"`
+	Index int    `json:"index"` // 1 หรือ 2
 }
 
 // ดึง secret จาก env
@@ -110,13 +117,15 @@ func GetQuiz(w http.ResponseWriter, r *http.Request) {
 	payload := q.Answer + "|" + id + "|" + strconv.FormatInt(exp, 10)
 	token := sign(secret, payload)
 
-	resp := QuizResp{
-		ID:    id,
-		Hints: []string{q.Hint1, q.Hint2},
-		Token: token,
-		Exp:   exp,
-	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store") // ← กัน cache
+
+	resp := QuizResp{
+		ID:        id,
+		Token:     token,
+		Exp:       exp,
+		HintCount: 2,
+	}
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
@@ -198,4 +207,56 @@ func RevealQuiz(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"answer": found})
+}
+
+func GetHint(w http.ResponseWriter, r *http.Request) {
+	var req HintReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Index != 1 && req.Index != 2 {
+		http.Error(w, "invalid index", http.StatusBadRequest)
+		return
+	}
+	// หมดเวลาแล้วห้ามขอเพิ่ม
+	if time.Now().Unix() > req.Exp {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "expired"})
+		return
+	}
+
+	secret := getSecret()
+
+	// ดึง answer+hint1+hint2 ทั้งหมด (หรือทำฟังก์ชันหาเฉพาะที่ match ก็ได้)
+	rows, err := db.GetAllQuizLite(r.Context()) // ← ดูโค้ดส่วน db ด้านล่าง
+	if err != nil {
+		http.Error(w, "cannot get hint", http.StatusInternalServerError)
+		return
+	}
+
+	var hint string
+	for _, row := range rows {
+		signed := sign(secret, row.Answer+"|"+req.ID+"|"+strconv.FormatInt(req.Exp, 10))
+		if equalHMAC(signed, req.Token) {
+			if req.Index == 1 {
+				hint = row.Hint1
+			} else {
+				hint = row.Hint2
+			}
+			break
+		}
+	}
+
+	if hint == "" {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"index": req.Index,
+		"hint":  hint,
+	})
 }

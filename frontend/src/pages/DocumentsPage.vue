@@ -59,14 +59,17 @@
         >
           ส่งคำตอบ
         </button>
-        <button
-          type="button"
-          @click="showHint"
-          class="px-4 py-2.5 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-          :disabled="showModal"
-        >
-          คำใบ้
-        </button>
+       <button
+  type="button"
+  @click="showHint"
+  class="relative px-4 py-2.5 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+  :disabled="showModal || hintCount >= maxHints"
+>
+  <span class="absolute -top-2 -right-3 bg-white text-yellow-700 rounded-full px-2 py-0.5 text-xs font-bold shadow">
+    {{ Math.min(hintCount, maxHints) }}/{{ maxHints }}
+  </span>
+  คำใบ้
+</button>
         <button
           type="button"
           @click="() => fetchQuiz()"
@@ -291,14 +294,14 @@ const quizId = ref('')
 const quizToken = ref('') // token จาก API
 const quizExp = ref(0)    // exp (unix seconds) จาก API
 
-const hints = ref<string[]>([])
 const guess = ref('')
 const result = ref<null | boolean>(null)
 const hint1 = ref('')
 const hint2 = ref('')
 const score = ref(0)
 const timer = ref(60)
-const hintCount = ref(0)
+const hintCount = ref(0)     // ขอไปแล้วกี่ใบ้
+const maxHints = ref(2)      // รับมาจาก backend ใน /api/quiz // จำนวนคำใบ้สูงสุดต่อข้อ
 const showModal = ref(false)
 const changeCount = ref(0)
 const maxChange = 5
@@ -320,6 +323,7 @@ let intervalId: number | undefined
 
 const timerPercent = computed(() => Math.max(0, Math.min(100, (timer.value / 60) * 100)))
 
+// ขอควิซใหม่ (ไม่มีคำใบ้มากับ response)
 async function fetchQuiz(isAuto = false) {
   if (changeCount.value >= maxChange && !isAuto) return
 
@@ -331,7 +335,7 @@ async function fetchQuiz(isAuto = false) {
   quizId.value = res.data.id
   quizToken.value = res.data.token
   quizExp.value = res.data.exp
-  hints.value = res.data.hints
+  maxHints.value = typeof res.data.hintCount === 'number' ? res.data.hintCount : 2
 
   result.value = null
   guess.value = ''
@@ -355,15 +359,12 @@ async function fetchQuiz(isAuto = false) {
     }
   }, 1000)
 
-  // แสดงคำใบ้แรกทันที
-  if (hints.value.length > 0) {
-    hint1.value = hints.value[0]
-    hintCount.value = 1
-  }
   if (!isAuto) changeCount.value++
 
   // โฟกัสช่องตอบเมื่อพร้อม
   nextTick(() => answerInput.value?.focus())
+  //โชว์ "คำใบ้แรก" อัตโนมัติทันทีที่เริ่มรอบ
+  await requestHint(1)
 }
 
 function handleSubmit() {
@@ -405,16 +406,47 @@ watch(result, (val, oldVal) => {
   }
 })
 
-function showHint() {
-  if (!hints.value?.length) return
-  if (hintCount.value === 0) {
-    hint1.value = hints.value[0]
-    hintCount.value++
-  } else if (hintCount.value === 1) {
-    hint2.value = hints.value[1]
-    timer.value = Math.max(timer.value - 10, 0)
-    hintCount.value++
+// ขอคำใบ้จาก server ทีละอัน
+async function requestHint(nextIndex: 1 | 2) {
+  if (!quizId.value || !quizToken.value || !quizExp.value) return
+  try {
+    const res = await api.post('/api/quiz/hint', {
+      id: quizId.value,
+      token: quizToken.value,
+      exp: quizExp.value,
+      index: nextIndex,
+    })
+    if ((res.data as any)?.error === 'expired') {
+      expiredNotice.value = true
+      if (intervalId) clearInterval(intervalId as number)
+      timer.value = 0
+      result.value = false
+      finalScore.value = score.value
+      finalLevel.value = currentLevel.value
+      showModal.value = true
+      revealAnswer()
+      nextTick(() => nameInput.value?.focus())
+      return
+    }
+    const text = (res.data && res.data.hint) || ''
+    if (nextIndex === 1) {
+      hint1.value = text
+      hintCount.value = 1
+    } else if (nextIndex === 2) {
+      hint2.value = text
+      hintCount.value = 2
+      // กติกา: ขอใบ้ที่สอง หักเวลา 10 วิ
+      timer.value = Math.max(timer.value - 10, 0)
+    }
+  } catch (e) {
+    console.error(e)
   }
+}
+
+function showHint() {
+  if (hintCount.value >= maxHints.value) return
+  const nextIndex = (hintCount.value + 1) as 1 | 2
+  requestHint(nextIndex)
 }
 
 // ดึงเฉลย (อนุญาตหลัง exp เท่านั้น)

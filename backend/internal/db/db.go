@@ -122,3 +122,31 @@ func GetRandomQuizByTier(ctx context.Context, tier int) (QuizRow, error) {
 	}
 	return q, err
 }
+
+type QuizLite struct {
+	Answer string
+	Hint1  string
+	Hint2  string
+}
+
+func GetAllQuizLite(ctx context.Context) ([]QuizLite, error) {
+	rows, err := pool.Query(ctx, `
+        SELECT answer, hint1, hint2
+        FROM public.quizzes
+        WHERE active = TRUE
+    `)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []QuizLite{}
+	for rows.Next() {
+		var q QuizLite
+		if err := rows.Scan(&q.Answer, &q.Hint1, &q.Hint2); err != nil {
+			return nil, err
+		}
+		out = append(out, q)
+	}
+	return out, rows.Err()
+}

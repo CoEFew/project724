@@ -24,5 +24,6 @@ func NewRouter() *chi.Mux {
 	r.Post("/api/scores", handlers.SaveScore)
 	r.Get("/api/scores", handlers.GetScores)
 	r.Post("/api/chat", handlers.ChatHandler)
+	r.Post("/api/quiz/hint", handlers.GetHint)
 	return r
 }
