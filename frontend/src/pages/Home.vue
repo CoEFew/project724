@@ -62,14 +62,14 @@
         :key="folder.name"
         class="relative overflow-visible flex flex-col items-center bg-white rounded-lg shadow-md p-6 hover:bg-blue-50 transition cursor-pointer"
         @click="goToFolder(folder.name)"
-        @mouseenter="folder.name === 'ANIMAL' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : null"
-        @mouseleave="folder.name === 'ANIMAL' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : null"
+        @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : null"
+        @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : null"
       >
-        <template v-if="folder.name === 'ANIMAL'">
+        <template v-if="folder.name === 'DogPuzzle'">
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
             <img
               :src="animalImg"
-              alt="ANIMAL"
+              alt="DogPuzzle"
               class="absolute left-1/2 -top-20 -translate-x-1/2
                      w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
                      object-contain drop-shadow-lg pointer-events-none z-10"
@@ -114,13 +114,13 @@ import picture2 from '../assets/images/cat2.png'
 
 const loading = ref(true)
 
-const folders = [{ name: 'ANIMAL' }, { name: 'CatText' }]
+const folders = [{ name: 'DogPuzzle' }, { name: 'CatText' }]
 
 const animalImg = ref(dog)
 const pictureImg = ref(picture)
 const router = useRouter()
 const goToFolder = (name: string) => {
-  if (name === 'ANIMAL')      router.push({ name: 'DocumentsPage' })
+  if (name === 'DogPuzzle')      router.push({ name: 'DocumentsPage' })
   else if (name === 'CatText')router.push({ name: 'CatText' })
   else if (name === 'bird')   router.push({ name: 'MusicPage' })
   else if (name === 'fish')   router.push({ name: 'VideosPage' })
