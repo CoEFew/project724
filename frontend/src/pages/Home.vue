@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <div class="w-full flex justify-center mb-6">
+    <div class="w-full flex justify-center mb-10">
       <h1 class="text-3xl font-bold text-blue-700 uppercase">PETTEXT</h1>
     </div>
 
