@@ -1,8 +1,12 @@
 <template>
   <div class="p-8 relative min-h-screen overflow-visible uppercase">
+    <!-- Loading overlay: แมวเด้งดึ๋ง + สลับหน้า–หลัง (ไม่เปลี่ยน src) -->
     <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
       <div class="flex flex-col items-center">
-        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-4 animate-bounce" />
+        <div class="relative h-24 w-24 mb-4 animate-bounce">
+          <img :src="catwalk"  alt="loading cat A" class="sprite" :class="catLoadFrontIsA ? 'front' : 'back'"/>
+          <img :src="catwalk2" alt="loading cat B" class="sprite" :class="catLoadFrontIsA ? 'back'  : 'front'"/>
+        </div>
         <span class="text-lg text-blue-700 font-semibold">กำลังโหลด...</span>
       </div>
     </div>
@@ -16,12 +20,11 @@
         @pointerdown="onBeePointerDown"
         @click="handleFloatingTextClick"
       >
-        <img
-          :src="beeImages[beeIndex]"
-          alt="ลองเลือกดูซิจ๊ะ!"
-          class="w-32 h-32 mx-auto"
-          draggable="false"
-        />
+        <div class="relative w-32 h-32 mx-auto">
+          <img :src="bee"  alt="bee A" class="sprite" draggable="false" :class="beeFrontIsA ? 'front' : 'back'"/>
+          <img :src="bee2" alt="bee B" class="sprite" draggable="false" :class="beeFrontIsA ? 'back'  : 'front'"/>
+        </div>
+
         <span
           v-if="showTooltip"
           class="absolute left-1/2 top-full -translate-x-1/2 mt-2 bg-black text-white px-4 py-2 rounded shadow-lg text-lg whitespace-nowrap"
@@ -32,38 +35,23 @@
       </div>
     </transition>
 
-    <!-- Catwalk -->
+    <!-- Catwalk (เดินสมูทด้วย rAF + translate3d) -->
     <div class="catwalk-container">
-      <div v-if="showCat" style="position:fixed;left:0;bottom:40px;width:100vw;height:80px;pointer-events:none;z-index:30;">
-        <img
-          :src="catwalkImages[catwalkIndex]"
-          class="catwalk cursor-pointer"
-          :style="catwalkStyle"
-          alt="catwalk"
+      <div v-if="showCat" class="fixed left-0 bottom-10 w-screen h-20 pointer-events-none z-30">
+        <div
+          :style="catwalkWrapperStyle"
+          class="pointer-events-auto cursor-pointer will-change-transform"
           @click="handleCatClick"
-          style="pointer-events:auto;z-index:31;"
-        />
-        <span v-if="showCatTooltip"
-          :style="{
-            position: 'fixed',
-            left: catwalkStyle.left,
-            bottom: '200px',
-            zIndex: 50,
-            background: 'black',
-            color: 'white',
-            padding: '6px 16px',
-            borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-            fontSize: '1.1rem',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-          }"
         >
-          เมี๊ยววว
-        </span>
+          <img :src="catwalk"  class="sprite" alt="catwalk A" :class="catFrontIsA ? 'front' : 'back'"/>
+          <img :src="catwalk2" class="sprite" alt="catwalk B" :class="catFrontIsA ? 'back'  : 'front'"/>
+        </div>
+
+        <span v-if="showCatTooltip" :style="catTooltipStyle">เมี๊ยววว</span>
       </div>
     </div>
 
+    <!-- เนื้อหา -->
     <div class="w-full flex justify-center mb-10">
       <h1 class="text-3xl font-bold text-blue-700 uppercase">PETTEXT</h1>
     </div>
@@ -112,10 +100,9 @@
 </template>
 
 <script setup lang="ts">
-const loading = ref(true)
-import { useRouter } from 'vue-router'
 import { ref, onMounted, onBeforeUnmount, computed, type CSSProperties } from 'vue'
-import BaseButton from '../components/BaseButton.vue'
+import { useRouter } from 'vue-router'
+
 import bee from '../assets/images/bee.png'
 import bee2 from '../assets/images/bee2.png'
 import catwalk from '../assets/images/catwalk.png'
@@ -125,52 +112,44 @@ import dog2 from '../assets/images/dog2.png'
 import picture from '../assets/images/cat4.png'
 import picture2 from '../assets/images/cat2.png'
 
-const folders = [
-  { name: 'ANIMAL' },
-  { name: 'CatText' },
-  // { name: 'bird' },
-  // { name: 'fish' }
-]
+const loading = ref(true)
 
-const beeImages = [bee, bee2]
-const beeIndex = ref(0)
+const folders = [{ name: 'ANIMAL' }, { name: 'CatText' }]
+
 const animalImg = ref(dog)
 const pictureImg = ref(picture)
 const router = useRouter()
 const goToFolder = (name: string) => {
-  if (name === 'ANIMAL') {
-    router.push({ name: 'DocumentsPage' })
-  } else if (name === 'CatText') {
-    router.push({ name: 'CatText' })
-  } else if (name === 'bird') {
-    router.push({ name: 'MusicPage' })
-  } else if (name === 'fish') {
-    router.push({ name: 'VideosPage' })
-  }
+  if (name === 'ANIMAL')      router.push({ name: 'DocumentsPage' })
+  else if (name === 'CatText')router.push({ name: 'CatText' })
+  else if (name === 'bird')   router.push({ name: 'MusicPage' })
+  else if (name === 'fish')   router.push({ name: 'VideosPage' })
 }
 
 const showFloatingText = ref(true)
 const showTooltip = ref(false)
 
-// --------- Bee motion (sine) + drag ----------
+/* ---------- Utilities ---------- */
+function preload(srcs: string[]) { srcs.forEach(s => { const i = new Image(); i.src = s }) }
+
+/* ---------- Bee motion (rAF + translate3d) ---------- */
 const margin = 16
-const beeSize = 128 // w-32 h-32
+const beeSize = 128
 const beeX = ref(0)
 const beeY = ref(0)
 const baseY = ref(0)
-const amplitude = ref(60)      // px
-const wavelength = ref(280)    // px
-const phase = ref(0)           // rad
-const dir = ref(1)             // 1 → right, -1 → left
-const speedX = ref(180)        // px/s
-let rafId: number | undefined
-let lastT: number | null = null
+const amplitude = ref(60)
+const wavelength = ref(280)
+const phase = ref(0)
+const dir = ref(1)
+const speedX = ref(180)
+let rafBee: number | undefined
+let lastBeeT: number | null = null
+const beeFrontIsA = ref(true)
+let beeSwapAcc = 0
+const BEE_SWAP_EVERY = 0.05
 
-// flap wings via the existing catwalk interval; no change needed here
-
-// style (use transform for smooth animation)
 const beeStyle = computed<CSSProperties>(() => {
-  // flip horizontally when moving left
   const flip = dir.value < 0 ? ' scaleX(-1)' : ''
   return {
     position: 'fixed',
@@ -179,84 +158,64 @@ const beeStyle = computed<CSSProperties>(() => {
     transform: `translate3d(${Math.round(beeX.value)}px, ${Math.round(beeY.value)}px, 0)` + flip,
     willChange: 'transform',
     transition: isDragging.value ? 'none' : 'transform 60ms linear',
-    touchAction: 'none', // allow drag on touch
+    touchAction: 'none',
     zIndex: 40,
   }
 })
 
-// init position & responsive baseline
 function placeBeeCenter() {
   const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)
   const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
   beeX.value = Math.min(Math.max(vw * 0.15, margin), vw - beeSize - margin)
   baseY.value = Math.min(Math.max(vh * 0.28, margin), vh - beeSize - margin)
   beeY.value = baseY.value
-  // set phase so that sin(...) = 0 at current x
   phase.value = -(2 * Math.PI * beeX.value) / wavelength.value
 }
 
-// main animation loop
 function animateBee(t: number) {
-  if (lastT === null) lastT = t
-  const dt = (t - lastT) / 1000
-  lastT = t
+  if (lastBeeT === null) lastBeeT = t
+  const dt = (t - lastBeeT) / 1000
+  lastBeeT = t
 
   if (!isDragging.value) {
     const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)
     const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
-
-    // move in X
     beeX.value += dir.value * speedX.value * dt
 
-    // bounce at edges
     const minX = margin
     const maxX = vw - beeSize - margin
-    if (beeX.value <= minX) {
-      beeX.value = minX
-      dir.value = 1
-      randomizeWave()
-    } else if (beeX.value >= maxX) {
-      beeX.value = maxX
-      dir.value = -1
-      randomizeWave()
-    }
+    if (beeX.value <= minX) { beeX.value = minX; dir.value = 1; randomizeWave() }
+    else if (beeX.value >= maxX) { beeX.value = maxX; dir.value = -1; randomizeWave() }
 
-    // sine Y based on X (S-curve)
     const y = baseY.value + amplitude.value * Math.sin((2 * Math.PI * beeX.value) / wavelength.value + phase.value)
     const minY = margin
     const maxY = vh - beeSize - margin
     beeY.value = Math.min(Math.max(y, minY), maxY)
   }
 
-  rafId = requestAnimationFrame(animateBee)
+  beeSwapAcc += dt
+  if (beeSwapAcc >= BEE_SWAP_EVERY) { beeFrontIsA.value = !beeFrontIsA.value; beeSwapAcc = 0 }
+
+  rafBee = requestAnimationFrame(animateBee)
 }
 
 function randomizeWave() {
-  // เล็กน้อยพอให้ดูมีชีวิตชีวา (แต่ไม่หลุดธีม)
-  const amp = 50 + Math.random() * 40        // 50–90
-  const wave = 240 + Math.random() * 160     // 240–400
+  const amp = 50 + Math.random() * 40
+  const wave = 240 + Math.random() * 160
   amplitude.value = amp
   wavelength.value = wave
-  // รักษาความต่อเนื่อง: ปรับ phase เพื่อให้ตำแหน่งปัจจุบันยังไม่กระโดด
   phase.value = (Math.asin(clamp((beeY.value - baseY.value) / amplitude.value, -1, 1)) - (2 * Math.PI * beeX.value) / wavelength.value)
 }
+function clamp(n: number, a: number, b: number) { return Math.min(Math.max(n, a), b) }
 
-function clamp(n: number, a: number, b: number) {
-  return Math.min(Math.max(n, a), b)
-}
-
-// drag handling
+/* drag */
 const isDragging = ref(false)
-let dragOffsetX = 0
-let dragOffsetY = 0
-
+let dragOffsetX = 0, dragOffsetY = 0
 function onBeePointerDown(e: PointerEvent) {
   const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)
   const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
-
   isDragging.value = true
   ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
   dragOffsetX = e.clientX - rect.left
   dragOffsetY = e.clientY - rect.top
@@ -264,54 +223,80 @@ function onBeePointerDown(e: PointerEvent) {
   const onMove = (ev: PointerEvent) => {
     const nx = clamp(ev.clientX - dragOffsetX, margin, vw - beeSize - margin)
     const ny = clamp(ev.clientY - dragOffsetY, margin, vh - beeSize - margin)
-    // update direction according to movement
     dir.value = nx > beeX.value ? 1 : nx < beeX.value ? -1 : dir.value
-    beeX.value = nx
-    beeY.value = ny
+    beeX.value = nx; beeY.value = ny
   }
   const onUp = () => {
     isDragging.value = false
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
     window.removeEventListener('pointercancel', onUp)
-    // resume sine smoothly from current position:
-    // set baseY to current Y and phase so sin(...) = 0 at x
     baseY.value = beeY.value
     phase.value = -(2 * Math.PI * beeX.value) / wavelength.value
   }
-
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onUp)
 }
 
-// tooltip click
 function handleFloatingTextClick() {
   showTooltip.value = true
   setTimeout(() => (showTooltip.value = false), 5000)
 }
 
-// --------- Catwalk animation ---------
-const catwalkImages = [catwalk, catwalk2]
-const catwalkIndex = ref(0)
-const catwalkStyle = ref<CSSProperties>({ left: '100vw', bottom: '40px', position: 'fixed' })
-let catwalkPos = window.innerWidth + 100
+/* ---------- Catwalk (rAF + translate3d) ---------- */
+const CAT_W = 200
+const catX = ref(window.innerWidth + 100)
+const catSpeed = ref(220)
+const catFrontIsA = ref(true)
+let rafCat: number | undefined
+let lastCatT: number | null = null
+let catSwapAcc = 0
+const CAT_SWAP_EVERY = 0.20
+let catPauseUntil = 0
+
+const catwalkWrapperStyle = computed<CSSProperties>(() => ({
+  position: 'fixed',
+  bottom: '40px',
+  width: `${CAT_W}px`,
+  height: `${CAT_W}px`,
+  transform: `translate3d(${Math.round(catX.value)}px, 0, 0)`,
+  willChange: 'transform',
+  zIndex: 31
+}))
+const catTooltipStyle = computed<CSSProperties>(() => ({
+  position: 'fixed',
+  left: `${Math.round(catX.value)}px`,
+  bottom: '200px',
+  zIndex: 50,
+  background: 'black',
+  color: 'white',
+  padding: '6px 16px',
+  borderRadius: '8px',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+  fontSize: '1.1rem',
+  whiteSpace: 'nowrap',
+  pointerEvents: 'none',
+}))
 const showCat = ref(true)
 const showCatTooltip = ref(false)
 
-function animateCatwalk() {
-  catwalkPos -= 16
-  if (catwalkPos < -80) {
-    showCat.value = false
-    setTimeout(() => {
-      catwalkPos = window.innerWidth + 100
-      catwalkStyle.value = { left: `${catwalkPos}px`, bottom: '40px', position: 'fixed' }
-      showCat.value = true
-    }, 400)
-    return
+function animateCat(t: number) {
+  if (lastCatT === null) lastCatT = t
+  const dt = (t - lastCatT) / 1000
+  lastCatT = t
+
+  if (t < catPauseUntil) { rafCat = requestAnimationFrame(animateCat); return }
+
+  catX.value -= catSpeed.value * dt
+  catSwapAcc += dt
+  if (catSwapAcc >= CAT_SWAP_EVERY) { catFrontIsA.value = !catFrontIsA.value; catSwapAcc = 0 }
+
+  if (catX.value < -CAT_W) {
+    catX.value = window.innerWidth + 100
+    catPauseUntil = t + 400 // ms
   }
-  catwalkStyle.value = { left: `${catwalkPos}px`, bottom: '40px', position: 'fixed' }
-  catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
+  rafCat = requestAnimationFrame(animateCat)
 }
 
 function handleCatClick() {
@@ -319,68 +304,51 @@ function handleCatClick() {
   setTimeout(() => (showCatTooltip.value = false), 5000)
 }
 
-let catwalkInterval: number | undefined
+/* ---------- Loading: เด้งดึ๋ง + โหลดครั้งเดียว ---------- */
+const catLoadFrontIsA = ref(true) // ใช้เฉพาะ overlay loading
+let catLoadSwapInterval: number | undefined
 
-// lifecycle
+/* ---------- lifecycle ---------- */
 onMounted(() => {
   document.title = 'PETTEXT - Home'
-  placeBeeCenter()
-  rafId = requestAnimationFrame(animateBee)
+  preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2])
 
-  catwalkInterval = setInterval(() => {
-    animateCatwalk()
-    beeIndex.value = (beeIndex.value + 1) % beeImages.length // ใช้เดิมเป็น wing flap
-  }, 200)
+  // loading: เด้ง + swap หน้า–หลัง (ไม่เปลี่ยน src)
+  catLoadSwapInterval = window.setInterval(() => (catLoadFrontIsA.value = !catLoadFrontIsA.value), 200)
+
+  placeBeeCenter()
+  rafBee = requestAnimationFrame(animateBee)
+  rafCat = requestAnimationFrame(animateCat)
 
   setTimeout(() => (loading.value = false), 800)
 
-  // update baseline & bounds on resize
-  window.addEventListener('resize', placeBeeCenter)
+  window.addEventListener('resize', () => {
+    if (catX.value > window.innerWidth) catX.value = window.innerWidth + 100
+    placeBeeCenter()
+  })
 })
 
 onBeforeUnmount(() => {
-  if (rafId) cancelAnimationFrame(rafId)
-  if (catwalkInterval) clearInterval(catwalkInterval as number)
-  window.removeEventListener('resize', placeBeeCenter)
+  if (rafBee) cancelAnimationFrame(rafBee)
+  if (rafCat) cancelAnimationFrame(rafCat)
+  if (catLoadSwapInterval) clearInterval(catLoadSwapInterval)
 })
 </script>
 
 <style scoped>
-.float-text-enter-active, .float-text-leave-active {
-  transition: opacity 0.5s;
-}
-.float-text-enter-from, .float-text-leave-to {
-  opacity: 0;
-}
-.float-text-enter-to, .float-text-leave-from {
-  opacity: 1;
-}
+/* transition สำหรับ v-transition เท่านั้น */
+.float-text-enter-active, .float-text-leave-active { transition: opacity 0.5s; }
+.float-text-enter-from, .float-text-leave-to { opacity: 0; }
+.float-text-enter-to, .float-text-leave-from { opacity: 1; }
 
-/* keep original catwalk look */
-.catwalk-container {
-  position: fixed;
-  left: 0;
-  bottom: 40px;
-  width: 100vw;
-  height: 80px;
-  pointer-events: none;
-  z-index: 30;
-}
-.catwalk {
-  width: 200px;
-  height: 200px;
-  position: fixed;
-  bottom: 40px;
-  left: 100vw;
-  transition: left 0.3s linear;
-}
+/* ซ้อนรูป (โหลดครั้งเดียว ไม่เปลี่ยน src) */
+.sprite { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.front { z-index: 2; visibility: visible; }
+.back  { z-index: 1; visibility: hidden; }
 
-/* for the folder image card drop-shadow */
-.folder-animal-img {
-  position: relative;
-  z-index: 2;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-  margin-bottom: 0.5rem;
-  overflow: visible;
-}
+/* พื้นที่ catwalk */
+.catwalk-container { pointer-events: none; z-index: 30; }
+
+/* ลดงาน layout ของภาพ */
+.will-change-transform { will-change: transform; }
 </style>
