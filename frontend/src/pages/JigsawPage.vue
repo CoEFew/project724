@@ -33,13 +33,13 @@
           </button>
 
           <h1 class="text-3xl md:text-4xl font-extrabold tracking-wide text-indigo-300/90 uppercase text-center flex-1 drop-shadow-sm">
-            PolaJigsaw
+            Pola•Jigsaw
           </h1>
 
           <div class="w-[90px] sm:w-[120px]" />
         </div>
         <p class="text-slate-300/80 text-sm md:text-base text-center">
-          ต่อจิ๊กซอนะ • ไม่ใช่ • ต่อ ธนภพ
+          โฮก • ปี๊บ
         </p>
       </header>
 

@@ -39,13 +39,13 @@
           </button>
 
           <h1 class="text-2xl md:text-4xl font-extrabold tracking-wide text-indigo-300/90 uppercase text-center flex-1 drop-shadow-sm">
-            Documents
+            Dog•Puzzle
           </h1>
 
           <div class="w-[90px] sm:w-[120px]" />
         </div>
         <p class="text-slate-300/80 text-xs md:text-sm text-center">
-          เก่งจริงก็ทายมาดิ! • Guess the word
+          บ๊อก • แบ๊ก
         </p>
       </header>
 
@@ -231,7 +231,6 @@
                 <template v-if="revealedAnswer">
                   <span class="inline-flex items-center gap-2 text-emerald-100 font-bold text-lg">
                     {{ revealedAnswer }}
-                    <span class="inline-block rounded-full bg-emerald-500 text-white text-[11px] px-2 py-0.5">ยืนยันแล้ว</span>
                   </span>
                 </template>
                 <template v-else>
@@ -541,7 +540,7 @@ async function loadScores() {
 const goBack = () => router.back()
 
 onMounted(() => {
-  document.title = 'PETTEXT - Documents'
+  document.title = 'PETTEXT - DogPuzzle'
   catwalkInterval = setInterval(() => {
     catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
   }, 200)
