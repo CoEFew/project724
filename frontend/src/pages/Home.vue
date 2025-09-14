@@ -76,6 +76,17 @@
             />
           </div>
         </template>
+         <template v-else-if="folder.name === 'PolaJigsaw'">
+          <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
+          <img
+              :src="polabearImg"
+              alt="DogPuzzle"
+              class="absolute left-1/2 -top-20 -translate-x-1/2
+                     w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
+                     object-contain drop-shadow-lg pointer-events-none z-10"
+            />
+          </div>
+        </template>
         <template v-else-if="folder.name === 'CatText'">
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
             <img
@@ -111,18 +122,20 @@ import dog from '../assets/images/dog.png'
 import dog2 from '../assets/images/dog2.png'
 import picture from '../assets/images/cat4.png'
 import picture2 from '../assets/images/cat2.png'
+import polabear from '../assets/images/polabear.png'
 
 const loading = ref(true)
 
-const folders = [{ name: 'DogPuzzle' }, { name: 'CatText' }]
+const folders = [{ name: 'DogPuzzle' }, { name: 'PolaJigsaw' }, { name: 'CatText' }]
 
 const animalImg = ref(dog)
 const pictureImg = ref(picture)
+const polabearImg = ref(polabear)
 const router = useRouter()
 const goToFolder = (name: string) => {
   if (name === 'DogPuzzle')      router.push({ name: 'DocumentsPage' })
   else if (name === 'CatText')router.push({ name: 'CatText' })
-  else if (name === 'bird')   router.push({ name: 'MusicPage' })
+  else if (name === 'PolaJigsaw')   router.push({ name: 'JigsawPage' })
   else if (name === 'fish')   router.push({ name: 'VideosPage' })
 }
 

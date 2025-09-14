@@ -12,7 +12,6 @@ import (
 )
 
 var pool *pgxpool.Pool
-
 var ErrNoQuiz = errors.New("no quiz")
 
 func Init(ctx context.Context) error {
@@ -20,7 +19,6 @@ func Init(ctx context.Context) error {
 	if dsn == "" {
 		return fmt.Errorf("DATABASE_URL is empty")
 	}
-
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return err
@@ -51,20 +49,26 @@ func Close() {
 type ScoreRow struct {
 	Name      string
 	Score     int
+	GameName  string
 	CreatedAt time.Time
 }
 
-func InsertScore(ctx context.Context, name string, score int) error {
-	_, err := pool.Exec(ctx, `INSERT INTO public.scores(name, score) VALUES ($1, $2)`, name, score)
+func InsertScore(ctx context.Context, name string, score int, gamename string) error {
+	_, err := pool.Exec(ctx,
+		`INSERT INTO public.scores(name, score, gamename) VALUES ($1, $2, $3)`,
+		name, score, gamename,
+	)
 	return err
 }
 
-func GetTopScores(ctx context.Context, limit int) ([]ScoreRow, error) {
+func GetTopScores(ctx context.Context, gamename string, limit int) ([]ScoreRow, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT name, score, created_at
+		SELECT name, score, gamename, created_at
 		FROM public.scores
+		WHERE ($1 = '' OR gamename = $1)
 		ORDER BY score DESC, created_at ASC
-		LIMIT $1`, limit)
+		LIMIT $2
+	`, gamename, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +77,7 @@ func GetTopScores(ctx context.Context, limit int) ([]ScoreRow, error) {
 	var out []ScoreRow
 	for rows.Next() {
 		var s ScoreRow
-		if err := rows.Scan(&s.Name, &s.Score, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.Name, &s.Score, &s.GameName, &s.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -81,7 +85,7 @@ func GetTopScores(ctx context.Context, limit int) ([]ScoreRow, error) {
 	return out, rows.Err()
 }
 
-// ===== Quizzes =====
+/* ===== Quizzes (คงเดิม) ===== */
 
 type QuizRow struct {
 	Answer string
