@@ -62,8 +62,8 @@
         :key="folder.name"
         class="relative overflow-visible flex flex-col items-center bg-white rounded-lg shadow-md p-6 hover:bg-blue-50 transition cursor-pointer"
         @click="goToFolder(folder.name)"
-        @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : null"
-        @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : null"
+ @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : folder.name === 'PolaJigsaw' ? polabearImg = polabear2 : null"
+ @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : folder.name === 'PolaJigsaw' ? polabearImg = polabear : null"
       >
         <template v-if="folder.name === 'DogPuzzle'">
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
@@ -80,7 +80,7 @@
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
           <img
               :src="polabearImg"
-              alt="DogPuzzle"
+              alt="PolaJigsaw"
               class="absolute left-1/2 -top-20 -translate-x-1/2
                      w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
                      object-contain drop-shadow-lg pointer-events-none z-10"
@@ -120,9 +120,10 @@ import catwalk from '../assets/images/catwalk.png'
 import catwalk2 from '../assets/images/catwalk2.png'
 import dog from '../assets/images/dog.png'
 import dog2 from '../assets/images/dog2.png'
-import picture from '../assets/images/cat4.png'
-import picture2 from '../assets/images/cat2.png'
+import picture from '../assets/images/cat2.png'
+import picture2 from '../assets/images/cat4.png'
 import polabear from '../assets/images/polabear.png'
+import polabear2 from '../assets/images/polabear3.png'
 
 const loading = ref(true)
 
@@ -324,7 +325,7 @@ let catLoadSwapInterval: number | undefined
 /* ---------- lifecycle ---------- */
 onMounted(() => {
   document.title = 'PETTEXT - Home'
-  preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2])
+  preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2, polabear, polabear2])
 
   // loading: เด้ง + swap หน้า–หลัง (ไม่เปลี่ยน src)
   catLoadSwapInterval = window.setInterval(() => (catLoadFrontIsA.value = !catLoadFrontIsA.value), 200)
