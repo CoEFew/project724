@@ -45,7 +45,7 @@
           <div class="w-[90px] sm:w-[120px]" />
         </div>
         <p class="text-slate-300/80 text-xs md:text-sm text-center">
-          บ๊อก • แบ๊ก
+            <span class="text-lg">🐕</span>
         </p>
       </header>
 

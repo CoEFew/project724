@@ -36,7 +36,7 @@
           <div class="w-[90px] sm:w-[120px]" />
         </div>
         <p class="text-slate-300/80 text-sm md:text-base text-center">
-          โฮก • ปี๊บ
+            <span class="text-lg">🐻‍❄️</span>
         </p>
       </header>
 

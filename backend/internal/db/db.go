@@ -154,3 +154,50 @@ func GetAllQuizLite(ctx context.Context) ([]QuizLite, error) {
 	}
 	return out, rows.Err()
 }
+
+// ===== Feedbacks =====
+
+type FeedbackRow struct {
+	Name      string
+	Contact   string
+	Message   string
+	Source    string
+	CreatedAt time.Time
+}
+
+func InsertFeedback(ctx context.Context, name, contact, message, source string) error {
+	if pool == nil {
+		return fmt.Errorf("db pool is nil")
+	}
+	_, err := pool.Exec(ctx, `
+		INSERT INTO public.feedbacks(name, contact, message, source)
+		VALUES ($1, $2, $3, $4)
+	`, name, contact, message, source)
+	return err
+}
+
+func GetRecentFeedbacks(ctx context.Context, limit int) ([]FeedbackRow, error) {
+	if pool == nil {
+		return nil, fmt.Errorf("db pool is nil")
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT name, contact, message, source, created_at
+		FROM public.feedbacks
+		ORDER BY created_at DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []FeedbackRow
+	for rows.Next() {
+		var f FeedbackRow
+		if err := rows.Scan(&f.Name, &f.Contact, &f.Message, &f.Source, &f.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}

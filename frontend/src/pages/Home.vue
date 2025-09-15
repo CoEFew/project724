@@ -7,6 +7,7 @@
           <img :src="catwalk"  alt="loading cat A" class="sprite" :class="catLoadFrontIsA ? 'front' : 'back'"/>
           <img :src="catwalk2" alt="loading cat B" class="sprite" :class="catLoadFrontIsA ? 'back'  : 'front'"/>
         </div>
+        <span class="text-lg text-blue-700 font-semibold">•Few Surasak•</span>
         <span class="text-lg text-blue-700 font-semibold">กำลังโหลด...</span>
       </div>
     </div>
@@ -62,8 +63,8 @@
         :key="folder.name"
         class="relative overflow-visible flex flex-col items-center bg-white rounded-lg shadow-md p-6 hover:bg-blue-50 transition cursor-pointer"
         @click="goToFolder(folder.name)"
- @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : folder.name === 'PolaJigsaw' ? polabearImg = polabear2 : null"
- @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : folder.name === 'PolaJigsaw' ? polabearImg = polabear : null"
+ @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : folder.name === 'PolaJigsaw' ? polabearImg = polabear2 : folder.name === 'Otterfeedback' ? otterImg = otter2 : null"
+ @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : folder.name === 'PolaJigsaw' ? polabearImg = polabear : folder.name === 'Otterfeedback' ? otterImg = otter : null"
       >
         <template v-if="folder.name === 'DogPuzzle'">
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
@@ -98,6 +99,17 @@
             />
           </div>
         </template>
+         <template v-else-if="folder.name === 'Otterfeedback'">
+          <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
+            <img
+              :src="otterImg"
+              alt="Otterfeedback"
+              class="absolute left-1/2 -top-20 -translate-x-1/2
+                     w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
+                     object-contain drop-shadow-lg pointer-events-none z-10"
+            />
+          </div>
+        </template>
         <template v-else>
           <svg class="w-16 h-16 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M10 4H2v16h20V6H12l-2-2z" />
@@ -124,20 +136,23 @@ import picture from '../assets/images/cat2.png'
 import picture2 from '../assets/images/cat4.png'
 import polabear from '../assets/images/polabear.png'
 import polabear2 from '../assets/images/polabear3.png'
+import otter from '../assets/images/otter.png'
+import otter2 from '../assets/images/otter2.png'
 
 const loading = ref(true)
 
-const folders = [{ name: 'DogPuzzle' }, { name: 'PolaJigsaw' }, { name: 'CatText' }]
+const folders = [{ name: 'DogPuzzle' }, { name: 'PolaJigsaw' }, { name: 'CatText' }, { name: 'Otterfeedback' }]
 
 const animalImg = ref(dog)
 const pictureImg = ref(picture)
 const polabearImg = ref(polabear)
+const otterImg = ref(otter)
 const router = useRouter()
 const goToFolder = (name: string) => {
   if (name === 'DogPuzzle')      router.push({ name: 'DocumentsPage' })
   else if (name === 'CatText')router.push({ name: 'CatText' })
   else if (name === 'PolaJigsaw')   router.push({ name: 'JigsawPage' })
-  else if (name === 'fish')   router.push({ name: 'VideosPage' })
+  else if (name === 'Otterfeedback')   router.push({ name: 'FeedbackPage' })
 }
 
 const showFloatingText = ref(true)
@@ -325,7 +340,7 @@ let catLoadSwapInterval: number | undefined
 /* ---------- lifecycle ---------- */
 onMounted(() => {
   document.title = 'PETTEXT - Home'
-  preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2, polabear, polabear2])
+  preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2, polabear, polabear2, otter, otter2])
 
   // loading: เด้ง + swap หน้า–หลัง (ไม่เปลี่ยน src)
   catLoadSwapInterval = window.setInterval(() => (catLoadFrontIsA.value = !catLoadFrontIsA.value), 200)
