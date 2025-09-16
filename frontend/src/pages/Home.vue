@@ -63,8 +63,8 @@
         :key="folder.name"
         class="relative overflow-visible flex flex-col items-center bg-white rounded-lg shadow-md p-6 hover:bg-blue-50 transition cursor-pointer"
         @click="goToFolder(folder.name)"
- @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : folder.name === 'PolaJigsaw' ? polabearImg = polabear2 : folder.name === 'Otterfeedback' ? otterImg = otter2 : null"
- @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : folder.name === 'PolaJigsaw' ? polabearImg = polabear : folder.name === 'Otterfeedback' ? otterImg = otter : null"
+ @mouseenter="folder.name === 'DogPuzzle' ? animalImg = dog2 : folder.name === 'CatText' ? pictureImg = picture2 : folder.name === 'CatGame' ? catImg = picture2 : folder.name === 'PolaJigsaw' ? polabearImg = polabear2 : folder.name === 'Otterfeedback' ? otterImg = otter2 : null"
+ @mouseleave="folder.name === 'DogPuzzle' ? animalImg = dog : folder.name === 'CatText' ? pictureImg = picture : folder.name === 'CatGame' ? catImg = picture : folder.name === 'PolaJigsaw' ? polabearImg = polabear : folder.name === 'Otterfeedback' ? otterImg = otter : null"
       >
         <template v-if="folder.name === 'DogPuzzle'">
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
@@ -88,11 +88,22 @@
             />
           </div>
         </template>
-        <template v-else-if="folder.name === 'CatText'">
+        <!-- <template v-else-if="folder.name === 'CatText'">
           <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
             <img
               :src="pictureImg"
               alt="CatText"
+              class="absolute left-1/2 -top-20 -translate-x-1/2
+                     w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
+                     object-contain drop-shadow-lg pointer-events-none z-10"
+            />
+          </div>
+        </template> -->
+         <template v-else-if="folder.name === 'CatGame'">
+          <div class="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14 lg:w-56 lg:h-16 mb-2">
+            <img
+              :src="catImg"
+              alt="CatGame"
               class="absolute left-1/2 -top-20 -translate-x-1/2
                      w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 lg:w-60 lg:h-60
                      object-contain drop-shadow-lg pointer-events-none z-10"
@@ -141,16 +152,18 @@ import otter2 from '../assets/images/otter2.png'
 
 const loading = ref(true)
 
-const folders = [{ name: 'DogPuzzle' }, { name: 'PolaJigsaw' }, { name: 'CatText' }, { name: 'Otterfeedback' }]
+const folders = [{ name: 'DogPuzzle' }, { name: 'PolaJigsaw' }, { name: 'CatGame' }, { name: 'Otterfeedback' }]
 
 const animalImg = ref(dog)
 const pictureImg = ref(picture)
+const catImg = ref(picture)
 const polabearImg = ref(polabear)
 const otterImg = ref(otter)
 const router = useRouter()
 const goToFolder = (name: string) => {
   if (name === 'DogPuzzle')      router.push({ name: 'DocumentsPage' })
   else if (name === 'CatText')router.push({ name: 'CatText' })
+else if (name === 'CatGame')router.push({ name: 'CatGame' })
   else if (name === 'PolaJigsaw')   router.push({ name: 'JigsawPage' })
   else if (name === 'Otterfeedback')   router.push({ name: 'FeedbackPage' })
 }
