@@ -35,7 +35,7 @@
 
           <h1
             class="text-2xl md:text-4xl font-extrabold tracking-wide text-indigo-300/90 uppercase text-center flex-1 drop-shadow-sm">
-            DOG • Context Quest
+            DOG • Puzzle
           </h1>
 
           <div class="flex items-center gap-2">
@@ -61,7 +61,7 @@
 
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <InfoCard label="คะแนน" :value="score" accent="indigo" />
-            <InfoCard label="เวลาคงเหลือ" :value="timer + ' วิ'" accent="sky" />
+            <InfoCard label="เวลาคงเหลือ" :value="timer + ' วินาที'" accent="sky" />
             <InfoCard label="ระดับ" :value="'Lv. ' + currentLevel" accent="fuchsia" />
           </div>
 
@@ -457,6 +457,7 @@ function toast(title: string, message: string, type: 'info' | 'success' | 'error
 }
 
 function heatText(v: number) {
+  if (v >= 100) return 'ตรงเป๊ะ!'
   if (v >= 90) return 'ใกล้มาก'
   if (v >= 70) return 'ใกล้'
   if (v >= 50) return 'ปานกลาง'
@@ -645,7 +646,7 @@ async function requestHint(nextIndex: 1 | 2) {
     } else if (nextIndex === 2) {
       hint2.value = text
       hintCount.value = 2
-      timer.value = Math.max(timer.value - 10, 0)
+      timer.value = Math.max(timer.value - 0, 0)
     }
   } catch (e: any) {
     toast('ขอคำใบ้ล้มเหลว', e.message || 'network error', 'error')
