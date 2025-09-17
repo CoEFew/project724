@@ -17,8 +17,8 @@
         <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
         <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน
           ช้ากว่าปกติเล็กน้อย</span>
-        <span class="mt-1 text-xs text-rose-200/80" v-if="net.lastError">พบข้อผิดพลาดเครือข่าย: {{ net.lastError
-          }}</span>
+        <!-- <span class="mt-1 text-xs text-rose-200/80" v-if="net.lastError">พบข้อผิดพลาดเครือข่าย: {{ net.lastError
+          }}</span> -->
       </div>
     </div>
 
