@@ -9,10 +9,16 @@
     </div>
 
     <!-- Loading overlay -->
-    <div v-if="loading" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[90]">
+    <div v-if="loading"
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[90]">
       <div class="flex flex-col items-center">
-        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-4 animate-bounce" />
+        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-2 animate-bounce" />
         <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
+        <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
+        <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน
+          ช้ากว่าปกติเล็กน้อย</span>
+        <span class="mt-1 text-xs text-rose-200/80" v-if="net.lastError">พบข้อผิดพลาดเครือข่าย: {{ net.lastError
+          }}</span>
       </div>
     </div>
 
@@ -36,7 +42,7 @@
           <div class="w-[90px] sm:w-[120px]" />
         </div>
         <p class="text-slate-300/80 text-sm md:text-base text-center">
-            <span class="text-lg">🐻‍❄️</span>
+          <span class="text-lg">🐻‍❄️</span>
         </p>
       </header>
 
@@ -305,6 +311,12 @@ import { useRouter } from 'vue-router'
 import catwalk from '../assets/images/catwalk.png'
 import catwalk2 from '../assets/images/catwalk2.png'
 import api from '../services/api'
+
+import { useNetworkStore } from '../store/useNetworkStore'
+import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'
+
+const net = useNetworkStore()
+
 
 /** ---------- Config & API ---------- */
 const GAME_NAME = 'PolaJigsaw'
@@ -617,20 +629,45 @@ const autoHeight = {
 }
 
 /** ---------- Mount / Unmount ---------- */
-onMounted(() => {
+onMounted(async () => {
   document.title = 'PETTEXT - PolaJigsaw'
 
   catwalkInterval = window.setInterval(() => {
     catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
   }, 200)
-  setTimeout(() => { loading.value = false }, 600)
 
-  loadAssetsPng()
-  pickRoundImages()
-  loadImagesFromApiIfAny()
-  loadTopScores()
 
-  setupResizeObserver()
+  catwalkInterval = window.setInterval(() => {
+    catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
+  }, 200)
+
+  // ✅ รอความพร้อมของ API แบบ async/await
+  const { healthOk, initialOk } = await waitApiReadyAndLoadInitial()
+
+  if (healthOk && initialOk) {
+    loading.value = false
+    loadAssetsPng()
+    pickRoundImages()
+    loadImagesFromApiIfAny()
+    loadTopScores()
+
+    setupResizeObserver()
+  } else {
+    // ✅ ถ้าจะใช้ await ใน setInterval ให้ทำ callback เป็น async
+    const checkTimer = window.setInterval(async () => {
+      const h = await waitApiReadyAndLoadInitial()
+      if (h.healthOk && h.initialOk) {
+        window.clearInterval(checkTimer)
+        loading.value = false
+        loadAssetsPng()
+        pickRoundImages()
+        loadImagesFromApiIfAny()
+        loadTopScores()
+
+        setupResizeObserver()
+      }
+    }, 5000)
+  }
 
   try {
     const saved = localStorage.getItem('pj_leaderboard_open')
