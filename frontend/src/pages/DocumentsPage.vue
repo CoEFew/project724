@@ -115,6 +115,12 @@
       changeCount }}/{{ maxChange }}</span>
             เปลี่ยนคำ
           </button>
+
+          <!-- ✅ ปุ่มจบเกม (เฉพาะโหมดไม่จับเวลา) -->
+          <button v-if="noTimer" type="button" @click="endNoTimer"
+            class="relative px-4 py-2.5 rounded-xl font-semibold w-full sm:w-auto transition bg-rose-500 text-white hover:bg-rose-400 disabled:opacity-50 disabled:cursor-not-allowed shadow">
+            จบเกม
+          </button>
         </form>
 
         <!-- ผลลัพธ์ + last guesses -->
@@ -291,13 +297,17 @@ import {
   ref, onMounted, watch, computed, onBeforeUnmount, nextTick,
   defineComponent, h, type PropType
 } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router' // ✅ เพิ่ม useRoute
 import { useNetworkStore } from '../store/useNetworkStore'
 import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'
 
 /* ===================== Config / State ===================== */
 const net = useNetworkStore()
 const router = useRouter()
+const route = useRoute() // ✅ อ่าน query
+
+// โหมดไม่จับเวลา จาก query: ?noTimer=1
+const noTimer = computed(() => String(route.query.noTimer || '') === '1') // ✅
 
 const GAME_NAME = 'DogPuzzle'
 const TOP_LIMIT = 10
@@ -518,14 +528,18 @@ async function fetchQuiz(isAuto = false) {
     hintCount.value = 0
     timer.value = Math.max(ROUND_SECONDS - Math.max(0, currentLevel.value - 3) * 3, 30)
     heat.value = 0
-    recentGuesses.value = [] // ✅ รีเซ็ตประวัติคำเดา (แก้ปัญหา API ส่งคำซ้ำ)
+    recentGuesses.value = [] // ✅ รีเซ็ตประวัติคำเดา (กันคำซ้ำ)
     if (!isAuto) changeCount.value++
 
+    // ✅ จัดการตัวจับเวลา: ถ้า noTimer → ไม่ตั้ง interval ใด ๆ
     if (intervalId) clearInterval(intervalId as number)
-    intervalId = window.setInterval(() => {
-      if (timer.value > 0) timer.value--
-      if (timer.value === 0) onTimeout()
-    }, 1000)
+    intervalId = undefined
+    if (!noTimer.value) {
+      intervalId = window.setInterval(() => {
+        if (timer.value > 0) timer.value--
+        if (timer.value === 0) onTimeout()
+      }, 1000) as unknown as number
+    }
 
     nextTick(() => answerInput.value?.focus())
     await requestHint(1) // auto show first hint
@@ -542,6 +556,21 @@ function onTimeout() {
   showModal.value = true
   revealAnswer()
   nextTick(() => nameInput.value?.focus())
+}
+
+// ✅ จบเกมด้วยมือ (เฉพาะโหมดไม่จับเวลา)
+function endNoTimer() {
+  try {
+    // ไม่เปลี่ยน UI/logic โมดัลเดิม ใช้เหมือนหมดเวลา
+    if (intervalId) clearInterval(intervalId as number)
+    finalScore.value = score.value
+    finalLevel.value = currentLevel.value
+    showModal.value = true
+    revealAnswer()
+    nextTick(() => nameInput.value?.focus())
+  } catch (e: any) {
+    toast('จบเกมไม่สำเร็จ', e?.message || 'unexpected error', 'error')
+  }
 }
 
 // debounced submit guard
@@ -642,7 +671,6 @@ async function requestHint(nextIndex: 1 | 2) {
     if (nextIndex === 1) {
       hint1.value = text
       hintCount.value = 1
-      // ❌ ตัด “บูสต์ใบ้เร็ว” ออก ไม่มีข้อความ/เอฟเฟกต์เพิ่มคอมโบ
     } else if (nextIndex === 2) {
       hint2.value = text
       hintCount.value = 2

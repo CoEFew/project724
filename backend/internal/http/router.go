@@ -27,5 +27,18 @@ func NewRouter() *chi.Mux {
 	r.Post("/api/quiz/hint", handlers.GetHint)
 	r.Post("/api/feedback", handlers.SaveFeedback)
 	r.Get("/api/feedback", handlers.GetFeedbacks)
+
+	r.Route("/api/rooms", func(r chi.Router) {
+		r.Post("/", handlers.CreateRoom)          // POST /api/rooms
+		r.Post("/{code}/join", handlers.JoinRoom) // POST /api/rooms/{code}/join
+		r.Post("/{code}/ready", handlers.ReadyRoom)
+		r.Post("/{code}/start", handlers.StartRoom)
+		r.Post("/{code}/guess", handlers.GuessRoom)
+		r.Post("/{code}/leave", handlers.LeaveRoom)
+	})
+
+	// WebSocket
+	r.Get("/ws/rooms/{code}", handlers.RoomWS)
+
 	return r
 }
