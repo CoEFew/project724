@@ -20,16 +20,44 @@ import (
 )
 
 /*
-Party mode (in-memory)
-REST:
-  /api/rooms, /api/rooms/{code}/join|ready|start|guess|leave
-WS:
-  /ws/rooms/{code}
+Party mode (in-memory multiplayer quiz game)
 
-สเปกเกมรอบ 3:
-- ใครตอบถูก → ทั้งห้องไปข้อถัดไปทันที (รีเซ็ตเวลา) ผู้ตอบถูกได้ +1
-- ถ้าหมดเวลา และ “ไม่มีใครตอบถูก” ในข้อนั้น → เกมจบทันที พร้อม leaderboard
-- ทุกข้อ โชว์ใบ้แรกได้จากฝั่ง FE (เราแค่เริ่มรอบใหม่)
+This module implements a real-time multiplayer quiz game system with the following features:
+- Room management with unique 6-character codes
+- Player joining/leaving with WebSocket real-time updates
+- Ready state management before game start
+- Real-time quiz gameplay with automatic progression
+- Score tracking and leaderboard display
+- Automatic room cleanup when empty
+
+REST API Endpoints:
+  GET  /api/rooms              - List all available rooms
+  POST /api/rooms              - Create a new room
+  POST /api/rooms/{code}/join  - Join a room by code
+  POST /api/rooms/{code}/ready - Toggle player ready state
+  POST /api/rooms/{code}/start - Start the game (owner only)
+  POST /api/rooms/{code}/guess - Submit answer during gameplay
+  POST /api/rooms/{code}/leave - Leave the room
+  GET  /api/rooms/{code}/snapshot - Get current room state
+
+WebSocket:
+  /ws/rooms/{code} - Real-time room updates
+
+Game Flow:
+1. Host creates room → gets unique code
+2. Players join room using code
+3. All players must be ready before game can start
+4. Game starts with quiz questions
+5. First correct answer advances to next question
+6. Game ends when time runs out or all questions answered
+7. Scores are saved and leaderboard displayed
+
+Technical Notes:
+- Uses in-memory storage (rooms sync.Map) for simplicity
+- WebSocket hub for real-time communication
+- Automatic cleanup of empty rooms
+- Robust error handling and validation
+- Thread-safe operations with mutex locks
 */
 
 func init() {
@@ -44,30 +72,33 @@ func init() {
 	log.Printf("[party] quizBaseURL = %s", quizBaseURL)
 }
 
+// roomStatus represents the current state of a game room
 type roomStatus string
 
 const (
-	statusWaiting  roomStatus = "waiting"
-	statusPlaying  roomStatus = "playing"
-	statusFinished roomStatus = "finished"
+	statusWaiting  roomStatus = "waiting"  // Room is waiting for players to join and get ready
+	statusPlaying  roomStatus = "playing"  // Game is currently in progress
+	statusFinished roomStatus = "finished" // Game has ended, showing results
 )
 
+// Room represents a multiplayer game room
 type Room struct {
-	ID         int64      `json:"id"`
-	Code       string     `json:"code"`
-	OwnerName  string     `json:"owner_name"`
-	Status     roomStatus `json:"status"`
-	MaxPlayers int        `json:"max_players"`
-	CreatedAt  time.Time  `json:"-"`
+	ID         int64      `json:"id"`          // Unique room identifier
+	Code       string     `json:"code"`        // 6-character room code for joining
+	OwnerName  string     `json:"owner_name"`  // Name of the room creator
+	Status     roomStatus `json:"status"`      // Current room status
+	MaxPlayers int        `json:"max_players"` // Maximum number of players allowed
+	CreatedAt  time.Time  `json:"-"`           // Room creation timestamp (not sent to client)
 }
 
+// Player represents a participant in a game room
 type Player struct {
-	ID      int64  `json:"id"`
-	Name    string `json:"name"`
-	IsOwner bool   `json:"is_owner"`
-	IsReady bool   `json:"is_ready"`
-	Score   int    `json:"score"`
-	IsOut   bool   `json:"is_out"`
+	ID      int64  `json:"id"`       // Unique player identifier within the room
+	Name    string `json:"name"`     // Player's display name
+	IsOwner bool   `json:"is_owner"` // Whether this player is the room owner
+	IsReady bool   `json:"is_ready"` // Whether the player is ready to start
+	Score   int    `json:"score"`    // Player's current score
+	IsOut   bool   `json:"is_out"`   // Whether the player is eliminated
 }
 
 type RoundPayload struct {
@@ -109,7 +140,8 @@ type roomState struct {
 	players     []*Player
 	round       *RoundPayload
 	seconds     int
-	roundSolved bool // ✅ มีคนตอบถูกในรอบนี้แล้วหรือยัง
+	roundSolved bool   // ✅ มีคนตอบถูกในรอบนี้แล้วหรือยัง
+	category    string // ✅ หมวดหมู่ของเกม
 }
 
 var rooms sync.Map // code -> *roomState
@@ -148,8 +180,27 @@ func wsHubRemove(code string, c *websocket.Conn) {
 func wsHubBroadcast(code string, msg hubMsg) {
 	wsMu.Lock()
 	defer wsMu.Unlock()
-	for c := range wsConn[code] {
-		_ = c.WriteJSON(msg) // best-effort
+
+	connections, exists := wsConn[code]
+	if !exists {
+		return
+	}
+
+	// Remove failed connections while broadcasting
+	var failedConnections []*websocket.Conn
+	for c := range connections {
+		if err := c.WriteJSON(msg); err != nil {
+			log.Printf("WebSocket broadcast error for room %s: %v", code, err)
+			failedConnections = append(failedConnections, c)
+		}
+	}
+
+	// Clean up failed connections
+	for _, c := range failedConnections {
+		delete(connections, c)
+		if err := c.Close(); err != nil {
+			log.Printf("Error closing failed WebSocket connection: %v", err)
+		}
 	}
 }
 
@@ -182,6 +233,38 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// Helper function to write error responses with consistent format
+func writeError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"error": message,
+		"code":  http.StatusText(code),
+	})
+}
+
+// Helper function to validate room state
+func validateRoomState(st *roomState) error {
+	if st == nil {
+		return errors.New("room not found")
+	}
+	if st.room == nil {
+		return errors.New("room data corrupted")
+	}
+	return nil
+}
+
+// Helper function to clean up a room after game ends
+func cleanupRoom(code string) {
+	// Remove room from active rooms
+	rooms.Delete(code)
+
+	// Broadcast room closed event to any remaining connections
+	wsHubBroadcast(code, hubMsg{Type: "room_closed"})
+
+	log.Printf("Room %s cleaned up after game ended", code)
+}
 func findPlayer(arr []*Player, name string) *Player {
 	for _, p := range arr {
 		if strings.EqualFold(p.Name, name) {
@@ -201,11 +284,40 @@ func clonePlayers(arr []*Player) []*Player {
 
 // ---------- REST ----------
 
+// GET /api/rooms - List all available rooms
+func ListRooms(w http.ResponseWriter, r *http.Request) {
+	roomsList := make([]map[string]any, 0)
+	rooms.Range(func(key, value interface{}) bool {
+		state := value.(*roomState)
+		state.mu.Lock()
+		room := state.room
+		playerCount := len(state.players)
+		state.mu.Unlock()
+
+		// Only show waiting rooms
+		if room.Status == statusWaiting {
+			roomInfo := map[string]any{
+				"id":           room.ID,
+				"code":         room.Code,
+				"owner_name":   room.OwnerName,
+				"status":       room.Status,
+				"max_players":  room.MaxPlayers,
+				"player_count": playerCount, // Add current player count
+			}
+			roomsList = append(roomsList, roomInfo)
+		}
+		return true
+	})
+
+	writeJSON(w, http.StatusOK, map[string]any{"rooms": roomsList})
+}
+
 // POST /api/rooms {ownerName, maxPlayers}
 func CreateRoom(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		OwnerName  string `json:"ownerName"`
 		MaxPlayers int    `json:"maxPlayers"`
+		Category   string `json:"category"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -219,6 +331,9 @@ func CreateRoom(w http.ResponseWriter, r *http.Request) {
 	if in.MaxPlayers < 2 || in.MaxPlayers > 4 {
 		in.MaxPlayers = 4
 	}
+	if in.Category == "" {
+		in.Category = "สัตว์" // Default to animals
+	}
 
 	code := codeGen()
 	room := &Room{
@@ -228,7 +343,7 @@ func CreateRoom(w http.ResponseWriter, r *http.Request) {
 		MaxPlayers: in.MaxPlayers,
 		CreatedAt:  time.Now(),
 	}
-	st := &roomState{room: room, players: []*Player{}}
+	st := &roomState{room: room, players: []*Player{}, category: in.Category}
 	rooms.Store(code, st)
 
 	writeJSON(w, http.StatusOK, map[string]any{"room": room})
@@ -238,20 +353,28 @@ func CreateRoom(w http.ResponseWriter, r *http.Request) {
 func JoinRoom(w http.ResponseWriter, r *http.Request) {
 	code := roomCode(r)
 	st := getState(code)
-	if st == nil {
-		http.NotFound(w, r)
+	if err := validateRoomState(st); err != nil {
+		writeError(w, http.StatusNotFound, "Room not found")
 		return
 	}
+
 	var in struct {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid request format")
 		return
 	}
+
 	in.Name = strings.TrimSpace(in.Name)
 	if in.Name == "" {
-		http.Error(w, "name required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Player name is required")
+		return
+	}
+
+	// Validate name length and characters
+	if len(in.Name) > 20 {
+		writeError(w, http.StatusBadRequest, "Player name too long (max 20 characters)")
 		return
 	}
 
@@ -259,15 +382,20 @@ func JoinRoom(w http.ResponseWriter, r *http.Request) {
 	defer st.mu.Unlock()
 
 	if st.room.Status != statusWaiting {
-		http.Error(w, "already started", http.StatusConflict)
+		writeError(w, http.StatusConflict, "Game has already started")
 		return
 	}
+
+	// Remove any existing player with the same name (handle re-joining)
+	for i, p := range st.players {
+		if strings.EqualFold(p.Name, in.Name) {
+			st.players = append(st.players[:i], st.players[i+1:]...)
+			break
+		}
+	}
+
 	if len(st.players) >= st.room.MaxPlayers {
-		http.Error(w, "room full", http.StatusConflict)
-		return
-	}
-	if findPlayer(st.players, in.Name) != nil {
-		http.Error(w, "name taken", http.StatusConflict)
+		writeError(w, http.StatusConflict, "Room is full")
 		return
 	}
 
@@ -279,7 +407,14 @@ func JoinRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	st.players = append(st.players, p)
 
+	// Broadcast player joined event with error handling
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Error broadcasting player_joined: %v", r)
+		}
+	}()
 	wsHubBroadcast(st.room.Code, hubMsg{Type: "player_joined", Players: clonePlayers(st.players)})
+
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -359,6 +494,27 @@ func StartRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	if st.room.Status == statusFinished {
 		http.Error(w, "game finished", http.StatusConflict)
+		return
+	}
+
+	// ✅ ตรวจสอบว่าผู้เล่นทุกคนพร้อมแล้ว
+	if len(st.players) == 0 {
+		http.Error(w, "no players in room", http.StatusBadRequest)
+		return
+	}
+
+	// ตรวจสอบว่าผู้เล่นทุกคนพร้อมแล้ว (ยกเว้นเจ้าของห้องที่สามารถเริ่มได้คนเดียว)
+	allReady := true
+	for _, p := range st.players {
+		if !p.IsReady {
+			allReady = false
+			break
+		}
+	}
+
+	// ถ้ามีผู้เล่นมากกว่า 1 คน ต้องให้ทุกคนพร้อม
+	if len(st.players) > 1 && !allReady {
+		http.Error(w, "all players must be ready", http.StatusBadRequest)
 		return
 	}
 
@@ -482,13 +638,27 @@ func LeaveRoom(w http.ResponseWriter, r *http.Request) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
+	// Find and remove the player from the room
 	for i, p := range st.players {
 		if strings.EqualFold(p.Name, in.Name) {
 			st.players = append(st.players[:i], st.players[i+1:]...)
 			break
 		}
 	}
-	wsHubBroadcast(st.room.Code, hubMsg{Type: "player_joined", Players: clonePlayers(st.players)})
+
+	// If no players left, clean up the room
+	if len(st.players) == 0 {
+		rooms.Delete(code)
+		wsHubBroadcast(code, hubMsg{Type: "room_closed"})
+	} else {
+		// Broadcast player left event to remaining players
+		wsHubBroadcast(st.room.Code, hubMsg{
+			Type:    "player_left",
+			Name:    in.Name,
+			Players: clonePlayers(st.players),
+		})
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -503,25 +673,36 @@ func RoomWS(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		log.Printf("WebSocket upgrade failed for room %s: %v", code, err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing WebSocket connection for room %s: %v", code, err)
+		}
+	}()
+
 	wsHubAdd(code, conn)
 	defer wsHubRemove(code, conn)
 
 	// snapshot แรก
 	st.mu.Lock()
-	_ = conn.WriteJSON(hubMsg{
+	if err := conn.WriteJSON(hubMsg{
 		Type:    "snapshot",
 		Room:    st.room,
 		Players: clonePlayers(st.players),
 		Round:   st.round,
-	})
+	}); err != nil {
+		log.Printf("Error sending initial snapshot to room %s: %v", code, err)
+		st.mu.Unlock()
+		return
+	}
 	st.mu.Unlock()
 
 	// read pump (keepalive)
 	for {
 		if _, _, err := conn.ReadMessage(); err != nil {
+			log.Printf("WebSocket read error for room %s: %v", code, err)
 			return
 		}
 	}
@@ -530,7 +711,7 @@ func RoomWS(w http.ResponseWriter, r *http.Request) {
 // ---------- Round & Timer ----------
 
 func startRoundLocked(ctx context.Context, st *roomState, round int) {
-	q, err := getQuiz(ctx, 1) // level = 1 (ปรับได้)
+	q, err := getQuiz(ctx, 1, st.category) // level = 1 (ปรับได้)
 	if err != nil {
 		// ❌ ดึงคำถามไม่ได้ (เช่น พอร์ตผิด / โปรเซสยังไม่ตื่น)
 		log.Printf("[party] getQuiz error: %v", err)
@@ -601,12 +782,17 @@ func tickTimer(st *roomState, roundNo int) {
 					}
 				}
 
+				// Broadcast game over event
 				wsHubBroadcast(st.room.Code, hubMsg{
 					Type:        "game_over",
 					Winner:      champ,
 					Leaderboard: leader,
 				})
+
+				// Clean up the room after game ends
+				roomCode := st.room.Code
 				st.mu.Unlock()
+				cleanupRoom(roomCode)
 				return
 			}
 
@@ -627,9 +813,12 @@ type quizResp struct {
 	HintCount int    `json:"hintCount"`
 }
 
-func getQuiz(ctx context.Context, level int) (*quizResp, error) {
+func getQuiz(ctx context.Context, level int, category string) (*quizResp, error) {
 	// ✅ ใช้พอร์ตจริงของโปรเซส
 	url := quizBaseURL + "/api/quiz?level=" + strconv.Itoa(level)
+	if category != "" {
+		url += "&category=" + category
+	}
 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	res, err := httpQuizClient.Do(req)

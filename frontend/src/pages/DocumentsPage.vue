@@ -51,8 +51,35 @@
         <p class="text-slate-300/80 text-xs md:text-sm text-center"><span class="text-lg">🐕</span></p>
       </header>
 
+      <!-- Category Selection -->
+      <section v-if="!showModal && !quizId" class="w-full max-w-xl mx-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.35)] p-6 space-y-5">
+        <h2 class="text-xl md:text-2xl font-extrabold text-indigo-100 tracking-wide text-center">เลือกหมวดหมู่</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button @click="selectCategory('สัตว์')" 
+            :class="['p-4 rounded-xl border transition-all', selectedCategory === 'สัตว์' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+            <div class="text-center">
+              <div class="text-2xl mb-2">🐕</div>
+              <div class="font-semibold">สัตว์</div>
+              <div class="text-xs opacity-80">สัตว์ต่างๆ ในโลก</div>
+            </div>
+          </button>
+          <button @click="selectCategory('เครื่องใช้ไฟฟ้า')" 
+            :class="['p-4 rounded-xl border transition-all', selectedCategory === 'เครื่องใช้ไฟฟ้า' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+            <div class="text-center">
+              <div class="text-2xl mb-2">⚡</div>
+              <div class="font-semibold">เครื่องใช้ไฟฟ้า</div>
+              <div class="text-xs opacity-80">อุปกรณ์ไฟฟ้าต่างๆ</div>
+            </div>
+          </button>
+        </div>
+        <button @click="startGame" :disabled="!selectedCategory"
+          class="w-full px-4 py-3 rounded-xl font-semibold transition bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed shadow">
+          เริ่มเกม
+        </button>
+      </section>
+
       <!-- กล่องเกม (Glass card) -->
-      <section
+      <section v-if="showModal || quizId"
         class="w-full max-w-xl mx-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.35)] p-6 space-y-5">
         <!-- สรุปสถานะ -->
         <div class="space-y-3">
@@ -123,21 +150,11 @@
           </button>
         </form>
 
-        <!-- ผลลัพธ์ + last guesses -->
+        <!-- ผลลัพธ์ -->
         <div class="space-y-2">
           <div v-if="result !== null" class="text-center" aria-live="polite">
             <span v-if="result === true" class="text-emerald-300 text-xl font-semibold">✔️ ถูกต้อง!</span>
             <span v-else-if="result === false" class="text-rose-300 text-xl font-semibold">❌ ผิด ลองใหม่!</span>
-          </div>
-          <div v-if="recentGuesses.length" class="flex flex-wrap gap-2 justify-center">
-            <span v-for="(g, i) in recentGuesses" :key="g.word + '_' + i"
-              class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-xs"
-              :class="g.correct ? 'bg-emerald-400/10 border-emerald-300/20 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-200'">
-              <span class="tabular-nums">#{{ i + 1 }}</span>
-              <span class="font-medium">{{ g.word }}</span>
-              <span v-if="typeof g.heat === 'number'" class="text-[10px] opacity-80">(ใกล้: {{ heatText(g.heat)
-                }})</span>
-            </span>
           </div>
         </div>
 
@@ -151,7 +168,18 @@
         <div class="flex flex-wrap items-center justify-center gap-2">
           <Chip v-if="hint1" label="คำใบ้ 1" :value="hint1" color="fuchsia" />
           <Chip v-if="hint2" label="คำใบ้ 2" :value="hint2" color="fuchsia" />
+        </div>
 
+        <!-- คำที่เคยเดา (ย้ายมาอยู่ใต้คำใบ้) -->
+        <div v-if="recentGuesses.length" class="flex flex-wrap gap-2 justify-center">
+          <span v-for="(g, i) in recentGuesses" :key="g.word + '_' + i"
+            class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-xs"
+            :class="g.correct ? 'bg-emerald-400/10 border-emerald-300/20 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-200'">
+            <span class="tabular-nums">#{{ i + 1 }}</span>
+            <span class="font-medium">{{ g.word }}</span>
+            <span v-if="typeof g.heat === 'number'" class="text-[10px] opacity-80">(ใกล้: {{ heatText(g.heat)
+              }})</span>
+          </span>
         </div>
       </section>
 
@@ -321,6 +349,7 @@ const catwalkIndex = ref(0)
 let catwalkInterval: number | undefined
 
 // game states
+const selectedCategory = ref('')
 const quizId = ref('')
 const quizToken = ref('')
 const quizExp = ref(0)
@@ -508,13 +537,26 @@ async function apiPost(path: string, body?: any, retry = 1) {
 }
 
 /* ===================== Core Game Flows ===================== */
+function selectCategory(category: string) {
+  selectedCategory.value = category
+}
+
+async function startGame() {
+  if (!selectedCategory.value) return
+  await fetchQuiz()
+}
+
 async function fetchQuiz(isAuto = false) {
   if (changeCount.value >= maxChange && !isAuto) return
   try {
     expiredNotice.value = false
     revealedAnswer.value = ''
 
-    const res = await apiGet('/api/quiz', { level: currentLevel.value })
+    const params: any = { level: currentLevel.value }
+    if (selectedCategory.value) {
+      params.category = selectedCategory.value
+    }
+    const res = await apiGet('/api/quiz', params)
     quizId.value = res.data.id
     quizToken.value = res.data.token
     quizExp.value = res.data.exp

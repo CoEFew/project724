@@ -58,6 +58,7 @@ func NewRouter() *chi.Mux {
 
 	// ---------- Party mode ----------
 	r.Route("/api/rooms", func(r chi.Router) {
+		r.Get("/", handlers.ListRooms)            // GET /api/rooms - List available rooms
 		r.Post("/", handlers.CreateRoom)          // POST /api/rooms
 		r.Post("/{code}/join", handlers.JoinRoom) // POST /api/rooms/{code}/join
 		r.Post("/{code}/ready", handlers.ReadyRoom)

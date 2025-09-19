@@ -127,6 +127,21 @@ func GetRandomQuizByTier(ctx context.Context, tier int) (QuizRow, error) {
 	return q, err
 }
 
+func GetRandomQuizByTierAndCategory(ctx context.Context, tier int, category string) (QuizRow, error) {
+	var q QuizRow
+	err := pool.QueryRow(ctx, `
+		SELECT answer, hint1, hint2, tier
+		FROM public.quizzes
+		WHERE active AND tier = $1 AND category = $2
+		ORDER BY random()
+		LIMIT 1
+	`, tier, category).Scan(&q.Answer, &q.Hint1, &q.Hint2, &q.Tier)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return q, ErrNoQuiz
+	}
+	return q, err
+}
+
 type QuizLite struct {
 	Answer string
 	Hint1  string

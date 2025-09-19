@@ -92,10 +92,29 @@ func GetQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 	tier := poolTierForLevel(level)
 
+	// Get category from query parameter
+	category := r.URL.Query().Get("category")
+	if category == "" {
+		category = "สัตว์" // Default to animals
+	}
+
 	now := time.Now()
 	rand.Seed(now.UnixNano())
 
-	q, err := db.GetRandomQuizByTier(r.Context(), tier)
+	var q db.QuizRow
+	var err error
+	
+	// Try to get quiz by category first, fallback to any tier if not found
+	if category != "" {
+		q, err = db.GetRandomQuizByTierAndCategory(r.Context(), tier, category)
+		if err != nil && errors.Is(err, db.ErrNoQuiz) {
+			// Fallback to any category if specific category not found
+			q, err = db.GetRandomQuizByTier(r.Context(), tier)
+		}
+	} else {
+		q, err = db.GetRandomQuizByTier(r.Context(), tier)
+	}
+	
 	if err != nil {
 		if errors.Is(err, db.ErrNoQuiz) {
 			http.Error(w, "no_quiz", http.StatusNotFound)

@@ -1,3 +1,29 @@
+<!--
+Multiplayer Quiz Game - Party Mode
+
+This component implements the multiplayer quiz game interface with the following features:
+- Room discovery and joining system
+- Real-time player management with WebSocket
+- Lobby with player ready states and room information
+- In-game quiz interface with automatic hint display
+- Score tracking and leaderboard display
+- Robust error handling and user feedback
+
+Key Features:
+1. Room List: Display available rooms with join functionality
+2. Room Creation: Create new rooms with unique codes
+3. Player Management: Real-time player list with ready states
+4. Game Flow: Seamless transition from lobby to gameplay
+5. Score System: Automatic score saving and leaderboard display
+6. Error Handling: Comprehensive error handling with user-friendly messages
+
+Technical Implementation:
+- Vue 3 Composition API with TypeScript
+- WebSocket for real-time communication
+- Local storage for player name persistence
+- Health check integration for robust loading
+- Responsive design with Tailwind CSS
+-->
 <template>
     <div class="min-h-screen relative overflow-x-hidden theme-modern">
         <!-- BG -->
@@ -13,6 +39,9 @@
             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[90]">
             <div class="flex flex-col items-center">
                 <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
+                <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
+                <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน
+                    ช้ากว่าปกติเล็กน้อย</span>
             </div>
         </div>
 
@@ -45,13 +74,118 @@
             <!-- ===== LOBBY ===== -->
             <section v-if="phase === 'lobby'"
                 class="w-full max-w-3xl mx-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-5 space-y-5">
-                <div class="text-slate-200 text-sm">
-                    <div class="mb-2">รหัสห้อง: <b class="tabular-nums">{{ room?.code || '—' }}</b></div>
-                    <div>ผู้เล่น: <b>{{ players.length }}</b> / {{ room?.max_players || 4 }}</div>
-                    <p class="mt-3 text-xs text-slate-400">
-                        * เจ้าของห้องสามารถกด “เริ่มเกม” ได้ทันที (รองรับเล่นคนเดียว)
+                
+                <!-- Room List Section -->
+                <div v-if="!room" class="space-y-4">
+                    <div class="text-center">
+                        <div class="flex items-center justify-center gap-3 mb-2">
+                            <h3 class="text-lg font-bold text-indigo-100">ห้องที่เปิดอยู่</h3>
+                            <button @click="loadAvailableRooms" 
+                                class="p-1.5 rounded-lg border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-slate-100 transition-colors"
+                                title="รีเฟรชรายการห้อง">
+                                <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                                    <path d="M21 3v5h-5"/>
+                                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                                    <path d="M3 21v-5h5"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="text-sm text-slate-400">เลือกห้องเพื่อเข้าร่วมหรือสร้างห้องใหม่</p>
+                    </div>
+                    <div v-if="availableRooms.length === 0" class="text-center text-slate-400 py-8">
+                        <div class="text-6xl mb-4">🏠</div>
+                        <p class="text-lg font-medium mb-2">ยังไม่มีห้องที่เปิดอยู่</p>
+                        <p class="text-sm">สร้างห้องใหม่เพื่อเริ่มเล่นกับเพื่อน</p>
+                    </div>
+                    <div v-else class="grid gap-3">
+                        <div v-for="roomItem in availableRooms" :key="roomItem.code"
+                            :class="[
+                                'rounded-xl border p-4 transition-all group',
+                                roomItem.player_count >= roomItem.max_players 
+                                    ? 'border-rose-400/30 bg-rose-500/5 cursor-not-allowed opacity-60' 
+                                    : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-400/30 cursor-pointer'
+                            ]"
+                            @click="roomItem.player_count < roomItem.max_players ? joinRoomByCode(roomItem.code) : null">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div :class="[
+                                        'w-3 h-3 rounded-full',
+                                        roomItem.player_count >= roomItem.max_players 
+                                            ? 'bg-rose-400' 
+                                            : 'bg-emerald-400 animate-pulse'
+                                    ]"></div>
+                                    <div>
+                                        <div :class="[
+                                            'font-semibold transition-colors',
+                                            roomItem.player_count >= roomItem.max_players
+                                                ? 'text-slate-400'
+                                                : 'text-slate-100 group-hover:text-indigo-200'
+                                        ]">
+                                            ห้อง {{ roomItem.code }}
+                                        </div>
+                                        <div class="text-sm text-slate-300">เจ้าของ: {{ roomItem.owner_name }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm text-slate-300">
+                                        {{ roomItem.player_count }}/{{ roomItem.max_players }} ผู้เล่น
+                                    </div>
+                                    <div :class="[
+                                        'text-xs font-medium',
+                                        roomItem.player_count >= roomItem.max_players
+                                            ? 'text-rose-400'
+                                            : 'text-emerald-400'
+                                    ]">
+                                        {{ roomItem.player_count >= roomItem.max_players ? 'เต็มแล้ว' : 'พร้อมเข้าร่วม' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Room Info -->
+                <div v-if="room" class="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-indigo-400 animate-pulse"></div>
+                            <span class="text-slate-200 font-semibold">ห้อง {{ room?.code || '—' }}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-slate-300">ผู้เล่น</span>
+                            <div class="flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30">
+                                <span class="text-indigo-200 font-bold tabular-nums">{{ players.length }}</span>
+                                <span class="text-indigo-300">/</span>
+                                <span class="text-indigo-300">{{ room?.max_players || 4 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        * เจ้าของห้องสามารถกด "เริ่มเกม" ได้ทันที (รองรับเล่นคนเดียว)
                         หรือเปิดอีกแท็บเข้าด้วยลิงก์/โค้ดเดียวกัน
                     </p>
+                </div>
+
+                <!-- Category Selection -->
+                <div v-if="!joined && !room" class="space-y-3">
+                    <h3 class="text-lg font-semibold text-indigo-100 text-center">เลือกหมวดหมู่</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button @click="selectedCategory = 'สัตว์'" 
+                            :class="['p-3 rounded-xl border transition-all', selectedCategory === 'สัตว์' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+                            <div class="text-center">
+                                <div class="text-xl mb-1">🐕</div>
+                                <div class="font-medium text-sm">สัตว์</div>
+                            </div>
+                        </button>
+                        <button @click="selectedCategory = 'เครื่องใช้ไฟฟ้า'" 
+                            :class="['p-3 rounded-xl border transition-all', selectedCategory === 'เครื่องใช้ไฟฟ้า' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+                            <div class="text-center">
+                                <div class="text-xl mb-1">⚡</div>
+                                <div class="font-medium text-sm">เครื่องใช้ไฟฟ้า</div>
+                            </div>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- join / ready / start -->
@@ -59,10 +193,16 @@
                     <input v-model="playerName" type="text" placeholder="กรอกชื่อของคุณ"
                         class="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/15 text-slate-100 placeholder:slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/60" />
 
-                    <button v-if="!joined" @click="joinRoom"
+                    <button v-if="!joined && !room" @click="createRoom"
+                        class="px-4 py-2.5 rounded-xl font-semibold bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed shadow"
+                        :disabled="!playerName.trim() || creating || !selectedCategory">
+                        {{ creating ? 'กำลังสร้าง...' : 'สร้างห้องใหม่' }}
+                    </button>
+
+                    <button v-if="!joined && room" @click="joinRoom"
                         class="px-4 py-2.5 rounded-xl font-semibold bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed shadow"
                         :disabled="!playerName.trim() || joining">
-                        {{ joining ? 'กำลังเข้าร่วม...' : 'สร้างห้อง' }}
+                        {{ joining ? 'กำลังเข้าร่วม...' : 'เข้าร่วมห้อง' }}
                     </button>
 
                     <button v-else @click="toggleReady"
@@ -95,20 +235,36 @@
 
                 <!-- players list -->
                 <div class="rounded-xl border border-white/10 bg-white/5">
-                    <div class="p-3 text-slate-200 text-sm font-semibold">ผู้เล่นในห้อง</div>
+                    <div class="p-4 text-slate-200 text-sm font-semibold flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-indigo-400"></div>
+                        ผู้เล่นในห้อง ({{ players.length }}/{{ room?.max_players || 4 }})
+                    </div>
                     <ul class="divide-y divide-white/10">
                         <li v-for="p in players" :key="p.name"
-                            class="px-3 py-2 text-slate-200 text-sm flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="inline-block w-2 h-2 rounded-full"
-                                    :class="p.is_ready ? 'bg-emerald-400' : 'bg-slate-400'"></span>
-                                <span class="font-medium">{{ p.name }}</span>
-                                <span v-if="p.is_owner"
-                                    class="text-[11px] px-2 py-0.5 rounded-full bg-white/10 border border-white/10">เจ้าของ</span>
-                                <span v-if="p.is_out"
-                                    class="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/30 text-rose-200">ตกรอบ</span>
+                            class="px-4 py-3 text-slate-200 text-sm flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-block w-3 h-3 rounded-full"
+                                        :class="p.is_ready ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'"></span>
+                                    <span class="font-medium">{{ p.name }}</span>
+                                </div>
+                                <div class="flex gap-1">
+                                    <span v-if="p.is_owner"
+                                        class="text-[10px] px-2 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 font-medium">เจ้าของ</span>
+                                    <span v-if="p.is_out"
+                                        class="text-[10px] px-2 py-1 rounded-full bg-rose-500/20 border border-rose-400/30 text-rose-200 font-medium">ตกรอบ</span>
+                                </div>
                             </div>
-                            <span class="tabular-nums text-slate-300">คะแนน: {{ p.score }}</span>
+                            <div class="flex items-center gap-2">
+                                <span v-if="p.is_ready" 
+                                    class="text-xs px-2 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 font-medium">
+                                    พร้อมแล้ว
+                                </span>
+                                <span v-else 
+                                    class="text-xs px-2 py-1 rounded-full bg-slate-500/20 border border-slate-400/30 text-slate-300 font-medium">
+                                    ยังไม่พร้อม
+                                </span>
+                            </div>
                         </li>
                     </ul>
                 </div>
@@ -163,17 +319,18 @@
                         <input ref="answerInput" v-model="guess" type="text"
                             :placeholder="meOut ? 'คุณตกรอบแล้ว — รอรอบถัดไป/จบเกม' : 'พิมพ์คำตอบที่นี่…'"
                             class="rounded-xl px-4 py-2.5 text-base bg-white/5 border border-white/15 text-slate-100 placeholder:slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 focus:border-indigo-400/60 w-full"
-                            :disabled="meOut || sending" />
+                            :disabled="meOut || sending" autocomplete="off" 
+                            @keydown.enter.prevent="submitGuess"
+                            @keydown.ctrl.h.prevent="() => {}"
+                            @keydown.ctrl.l.prevent="() => {}" />
+                        <!-- duplicate guess warning -->
+                        <p v-if="duplicateWarning" class="absolute -bottom-5 left-1 text-[11px] text-amber-300">
+                            กรอกคำซ้ำกับที่เคยเดาแล้ว</p>
                     </div>
                     <button type="submit"
                         class="px-4 py-2.5 rounded-xl font-semibold w-full sm:w-auto transition bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed shadow"
                         :disabled="meOut || !guessSanitized || sending">
                         ส่งคำตอบ
-                    </button>
-                    <button type="button" @click="showHint"
-                        class="px-4 py-2.5 rounded-xl font-semibold w-full sm:w-auto transition bg-amber-500 text-slate-900 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed shadow"
-                        :disabled="!round || hintBusy">
-                        {{ hintBusy ? 'กำลังดึงคำใบ้…' : 'คำใบ้' }}
                     </button>
                 </form>
 
@@ -208,22 +365,35 @@
                 class="w-full max-w-3xl mx-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-5 space-y-4">
                 <h3 class="text-xl font-extrabold text-indigo-100">ผลการแข่งขัน</h3>
                 <p class="text-slate-200 text-sm">ผู้ชนะ: <b>{{ winner?.name || '—' }}</b></p>
-                <ul class="divide-y divide-white/10">
-                    <li v-for="(l, idx) in leaderboard" :key="l.name"
-                        class="py-2 flex items-center justify-between text-sm text-slate-100">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="w-6 text-center">
-                                <template v-if="idx === 0">🥇</template>
-                                <template v-else-if="idx === 1">🥈</template>
-                                <template v-else-if="idx === 2">🥉</template>
-                                <template v-else>{{ idx + 1 }}.</template>
-                            </span>
-                            <span class="font-medium truncate max-w-[10rem] sm:max-w-[14rem]" :title="l.name">{{ l.name
-                                }}</span>
-                        </div>
-                        <div class="tabular-nums font-semibold">{{ l.score }} คะแนน</div>
-                    </li>
-                </ul>
+                
+                <!-- Revealed Answer -->
+                <div v-if="revealedAnswer" class="rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-4">
+                    <h4 class="text-lg font-bold text-emerald-100 mb-2 text-center">คำตอบที่ถูกต้อง</h4>
+                    <div class="text-center">
+                        <span class="inline-flex items-center gap-2 text-emerald-100 font-bold text-xl">{{ revealedAnswer }}</span>
+                    </div>
+                </div>
+
+                <!-- Scoreboard -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <h4 class="text-lg font-bold text-indigo-100 mb-3 text-center">ตารางคะแนน</h4>
+                    <ul class="divide-y divide-white/10">
+                        <li v-for="(l, idx) in leaderboard" :key="l.name"
+                            class="py-3 flex items-center justify-between text-sm text-slate-100">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="w-8 text-center text-lg">
+                                    <template v-if="idx === 0">🥇</template>
+                                    <template v-else-if="idx === 1">🥈</template>
+                                    <template v-else-if="idx === 2">🥉</template>
+                                    <template v-else>{{ idx + 1 }}.</template>
+                                </span>
+                                <span class="font-medium truncate max-w-[10rem] sm:max-w-[14rem]" :title="l.name">{{ l.name
+                                    }}</span>
+                            </div>
+                            <div class="tabular-nums font-semibold text-lg">{{ l.score }} คะแนน</div>
+                        </li>
+                    </ul>
+                </div>
 
                 <div class="flex gap-2">
                     <button @click="goBack"
@@ -252,10 +422,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, defineComponent, h, type PropType } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
+import { useNetworkStore } from '../store/useNetworkStore'
+import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'
 
 /** ---------- route / state ---------- */
 const router = useRouter()
 const route = useRoute()
+const net = useNetworkStore()
 const loading = ref(true)
 const soundOn = ref(true)
 
@@ -266,6 +439,8 @@ type RoundPayload = { round_no: number; quiz_id: string; quiz_token: string; qui
 const room = ref<Room | null>(null)
 const players = ref<Player[]>([])
 const round = ref<RoundPayload | null>(null)
+const availableRooms = ref<Room[]>([])
+const selectedCategory = ref('สัตว์') // Default to animals
 
 const phase = ref<'lobby' | 'playing' | 'over'>('lobby')
 const joined = ref(false)
@@ -283,12 +458,19 @@ const remainSeconds = ref(0)
 
 /** ---------- ui ---------- */
 const joining = ref(false)
+const creating = ref(false)
 const starting = ref(false)
 const sending = ref(false)
 const hintBusy = ref(false)
 const hints = ref<string[]>([])
 const guess = ref('')
 const guessSanitized = computed(() => guess.value.trim())
+const revealedAnswer = ref('')
+const duplicateWarning = computed(() =>
+    myRoundGuesses.value.some(
+        g => g.toLowerCase() === guessSanitized.value.toLowerCase()
+    )
+)
 const lastResult = ref<boolean | null>(null)
 const answerInput = ref<HTMLInputElement | null>(null)
 
@@ -309,12 +491,86 @@ function goJoinByCode() {
     router.push({ name: 'DocumentsPageRoom', params: { code } })
 }
 
+/** ---------- room list ---------- */
+async function loadAvailableRooms() {
+    try {
+        const res = await api.get('/api/rooms')
+        availableRooms.value = res.data.rooms || []
+    } catch (e: any) {
+        console.warn('Failed to load rooms:', e?.message || e)
+        availableRooms.value = []
+    }
+}
+
+async function joinRoomByCode(code: string) {
+    if (!playerName.value.trim()) {
+        toast('กรุณากรอกชื่อ', 'ต้องกรอกชื่อก่อนเข้าร่วมห้อง', 'error')
+        return
+    }
+    router.push({ name: 'DocumentsPageRoom', params: { code } })
+}
+
+async function createRoom() {
+    if (!playerName.value.trim()) {
+        toast('กรุณากรอกชื่อ', 'ต้องกรอกชื่อก่อนสร้างห้อง', 'error')
+        return
+    }
+    creating.value = true
+    try {
+        const res = await api.post('/api/rooms', { ownerName: playerName.value.trim(), maxPlayers: 4, category: selectedCategory.value })
+        const r = res.data.room
+        room.value = { code: r.code, max_players: r.maxPlayers, status: r.status }
+        await joinRoom()
+    } catch (e: any) {
+        toast('สร้างห้องล้มเหลว', e?.message || 'network error', 'error')
+    } finally {
+        creating.value = false
+    }
+}
+
 /** ---------- toast ---------- */
 const toasts = ref<{ id: string; title: string; message: string; type: 'info' | 'success' | 'error' }[]>([])
 function toast(title: string, message: string, type: 'info' | 'success' | 'error' = 'info') {
     const id = Math.random().toString(36).slice(2)
     toasts.value.push({ id, title, message, type })
     setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3500)
+}
+
+/** ---------- error handling ---------- */
+function handleApiError(error: any, defaultMessage: string = 'เกิดข้อผิดพลาด') {
+    console.error('API Error:', error)
+    
+    let message = defaultMessage
+    let title = 'ข้อผิดพลาด'
+    
+    if (error?.response?.data?.error) {
+        message = error.response.data.error
+    } else if (error?.response?.status) {
+        switch (error.response.status) {
+            case 400:
+                title = 'ข้อมูลไม่ถูกต้อง'
+                message = error.response.data?.error || 'กรุณาตรวจสอบข้อมูลที่กรอก'
+                break
+            case 404:
+                title = 'ไม่พบข้อมูล'
+                message = 'ไม่พบห้องหรือข้อมูลที่ต้องการ'
+                break
+            case 409:
+                title = 'ข้อมูลซ้ำ'
+                message = error.response.data?.error || 'ข้อมูลนี้มีอยู่แล้ว'
+                break
+            case 500:
+                title = 'เซิร์ฟเวอร์ผิดพลาด'
+                message = 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่'
+                break
+            default:
+                message = error.response.data?.error || error.message || defaultMessage
+        }
+    } else if (error?.message) {
+        message = error.message
+    }
+    
+    toast(title, message, 'error')
 }
 function toastClass(type: 'info' | 'success' | 'error') {
     const base = 'bg-white/10 border-white/15 text-slate-100 backdrop-blur'
@@ -324,11 +580,16 @@ function toastClass(type: 'info' | 'success' | 'error') {
 }
 
 /** ---------- helpers ---------- */
+function cleanupLocalStorage() {
+    // Clean up party-related localStorage when leaving room
+    localStorage.removeItem('party_name')
+}
+
 function goBack() {
-    // 🔧 หลังจบเกมให้ย้อนกลับหน้า home เสมอ
-    if (phase.value === 'over') {
-        router.back()
-    }
+    // Clean up localStorage when leaving room
+    cleanupLocalStorage()
+    
+    // Always navigate to Home page
     router.back()
 }
 async function copyInvite() {
@@ -411,6 +672,15 @@ async function bootstrapFromCode(code: string) {
 
 onMounted(async () => {
     ensureName()
+    
+    // Wait for API to be ready
+    const { healthOk, initialOk } = await waitApiReadyAndLoadInitial()
+    if (!healthOk || !initialOk) {
+        loading.value = false
+        toast('เซิร์ฟเวอร์ไม่พร้อม', 'กำลังพยายามเชื่อมต่อใหม่...', 'error')
+        return
+    }
+    
     const rawParam = (route.params.code as string | undefined) || ''
     const pathTail = window.location.pathname.split('/').pop() || ''
     const paramCode = (rawParam || pathTail).toUpperCase()
@@ -420,14 +690,13 @@ onMounted(async () => {
         if (looksLikeCode) {
             await bootstrapFromCode(paramCode) // ผู้เล่นเข้าห้องด้วยลิงก์
         } else {
-            const res = await api.post('/api/rooms', { ownerName: playerName.value || 'Player', maxPlayers: 4 })
-            const r = res.data.room
-            room.value = { code: r.code, max_players: r.maxPlayers, status: r.status }
+            // Load available rooms instead of creating a room immediately
+            await loadAvailableRooms()
             loading.value = false
         }
     } catch (e: any) {
         loading.value = false
-        toast('สร้าง/โหลดห้องล้มเหลว', e?.message || 'network error', 'error')
+        toast('โหลดข้อมูลล้มเหลว', e?.message || 'network error', 'error')
     }
 })
 
@@ -437,7 +706,11 @@ watch(() => route.params.code, async (val) => {
     if (code && /^[A-Z0-9]{6}$/.test(code)) { await bootstrapFromCode(code) }
 })
 
-onBeforeUnmount(() => { try { ws?.close() } catch { } })
+onBeforeUnmount(() => { 
+    try { ws?.close() } catch { } 
+    // Clean up localStorage when component is unmounted
+    cleanupLocalStorage()
+})
 
 /** ---------- actions ---------- */
 async function joinRoom() {
@@ -450,8 +723,9 @@ async function joinRoom() {
         connectWS()
         await nextTick()
         answerInput.value?.focus()
+        toast('เข้าร่วมสำเร็จ', 'เข้าร่วมห้องแล้ว', 'success')
     } catch (e: any) {
-        toast('เข้าร่วมล้มเหลว', e?.message || 'network error', 'error')
+        handleApiError(e, 'ไม่สามารถเข้าร่วมห้องได้')
     } finally {
         joining.value = false
     }
@@ -460,8 +734,9 @@ async function toggleReady() {
     if (!room.value || !joined.value) return
     try {
         await api.post(`/api/rooms/${room.value.code}/ready`, { name: playerName.value, ready: !meReady.value })
+        toast('เปลี่ยนสถานะสำเร็จ', meReady.value ? 'พร้อมแล้ว' : 'ยังไม่พร้อม', 'success')
     } catch (e: any) {
-        toast('เปลี่ยนสถานะพร้อมล้มเหลว', e?.message || 'network error', 'error')
+        handleApiError(e, 'ไม่สามารถเปลี่ยนสถานะได้')
     }
 }
 
@@ -472,12 +747,12 @@ async function safePullSnapshot() {
     const m = res.data
     if (m?.room) room.value = normalizeRoom(m.room)
     if (Array.isArray(m?.players)) players.value = m.players.map(normalizePlayer)
-    if (m?.round) {
-      round.value = normalizeRound(m.round)
-      phase.value = 'playing'
-      remainSeconds.value = m.round.seconds || 60
-      fetchFirstHintIfAny()
-    }
+      if (m?.round) {
+        round.value = normalizeRound(m.round)
+        phase.value = 'playing'
+        remainSeconds.value = m.round.seconds || 60
+        fetchAllHints()
+      }
   } catch {/* ignore */}
 }
 
@@ -549,21 +824,52 @@ function connectWS() {
 }
 
 
-async function fetchFirstHintIfAny() {
-    // ทุกข้อโชว์ใบ้แรกเลย
+async function fetchAllHints() {
+    // ทุกข้อโชว์ใบ้ทั้งหมดในโหมด party
     if (!round.value) return
+    hints.value = []
+    
     try {
-        const res = await api.post('/api/quiz/hint', {
+        // Fetch hint 1
+        const res1 = await api.post('/api/quiz/hint', {
             id: round.value.quiz_id,
             token: round.value.quiz_token,
             exp: round.value.quiz_exp,
             index: 1,
         })
-        const text = res?.data?.hint || ''
-        hints.value = text ? [text] : []
+        const hint1 = res1?.data?.hint || ''
+        if (hint1) hints.value.push(hint1)
+        
+        // Fetch hint 2
+        const res2 = await api.post('/api/quiz/hint', {
+            id: round.value.quiz_id,
+            token: round.value.quiz_token,
+            exp: round.value.quiz_exp,
+            index: 2,
+        })
+        const hint2 = res2?.data?.hint || ''
+        if (hint2) hints.value.push(hint2)
+        
     } catch (e: any) {
         // ไม่ fail เกม เพียงแค่ไม่แสดงใบ้
         console.warn('hint error', e?.message || e)
+    }
+}
+
+async function revealAnswer() {
+    // Reveal the correct answer when round/game ends
+    if (!round.value) return
+    
+    try {
+        const res = await api.post('/api/quiz/reveal', {
+            id: round.value.quiz_id,
+            token: round.value.quiz_token,
+            exp: round.value.quiz_exp,
+        })
+        revealedAnswer.value = (res.data && res.data.answer) || ''
+    } catch (e: any) {
+        console.warn('reveal answer error', e?.message || e)
+        revealedAnswer.value = ''
     }
 }
 
@@ -572,12 +878,22 @@ function handleWs(m: any) {
         case 'snapshot':
             if (m.room) room.value = normalizeRoom(m.room)
             if (Array.isArray(m.players)) players.value = m.players.map(normalizePlayer)
-            if (m.round) { round.value = normalizeRound(m.round); phase.value = 'playing'; remainSeconds.value = m.round.seconds; fetchFirstHintIfAny() }
+            if (m.round) { round.value = normalizeRound(m.round); phase.value = 'playing'; remainSeconds.value = m.round.seconds; fetchAllHints() }
             else phase.value = 'lobby'
             break
         case 'player_joined':
         case 'ready_changed':
+        case 'player_left':
             if (Array.isArray(m.players)) players.value = m.players.map(normalizePlayer)
+            if (m.type === 'player_left' && m.name) {
+                toast('ผู้เล่นออกจากห้อง', `${m.name} ออกจากห้องแล้ว`, 'info')
+            }
+            break
+        case 'room_closed':
+            toast('ห้องปิดแล้ว', 'เจ้าของห้องออกไปแล้ว ห้องถูกปิด', 'error')
+            // Clean up localStorage and redirect to party lobby
+            cleanupLocalStorage()
+            router.push({ name: 'DocumentsPageAlls' })
             break
         case 'round_started':
             round.value = normalizeRound(m.round)
@@ -587,7 +903,7 @@ function handleWs(m: any) {
             phase.value = 'playing'
             remainSeconds.value = round.value?.seconds || 60
             nextTick(() => answerInput.value?.focus())
-            fetchFirstHintIfAny()
+            fetchAllHints()
             break
         case 'timer_tick':
             remainSeconds.value = m.seconds || 0
@@ -607,6 +923,18 @@ function handleWs(m: any) {
             phase.value = 'over'
             winner.value = m.winner ? normalizePlayer(m.winner) : null
             leaderboard.value = Array.isArray(m.leaderboard) ? m.leaderboard.map((x: any) => ({ name: x.name, score: x.score })) : []
+            // Reveal the answer when game ends
+            revealAnswer()
+            // Save scores to database
+            saveMultiplayerScores()
+            // Clean up room state and redirect to lobby after a delay
+            setTimeout(() => {
+                cleanupLocalStorage()
+                room.value = null
+                players.value = []
+                phase.value = 'lobby'
+                router.push({ name: 'DocumentsPageAlls' })
+            }, 5000) // 5 second delay to show results
             break
             case 'round_failed':
       // เซิร์ฟเวอร์บอกว่าเริ่มรอบไม่ได้ (เช่น quiz ไม่ว่าง / พอร์ตผิด)
@@ -655,6 +983,25 @@ async function showHint() {
 /** ---------- game over ---------- */
 const winner = ref<Player | null>(null)
 const leaderboard = ref<{ name: string; score: number }[]>([])
+
+async function saveMultiplayerScores() {
+    if (!leaderboard.value.length) return
+    
+    try {
+        // Save all player scores
+        for (const player of leaderboard.value) {
+            await api.post('/api/scores', {
+                name: player.name,
+                score: player.score,
+                gamename: 'DogPuzzleParty'
+            })
+        }
+        toast('บันทึกคะแนน', 'คะแนนของทุกคนถูกบันทึกแล้ว', 'success')
+    } catch (e: any) {
+        console.warn('Failed to save multiplayer scores:', e?.message || e)
+        toast('บันทึกคะแนนล้มเหลว', 'ไม่สามารถบันทึกคะแนนได้', 'error')
+    }
+}
 
 </script>
 

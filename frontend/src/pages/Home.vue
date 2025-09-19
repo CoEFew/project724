@@ -9,6 +9,8 @@
         </div>
         <span class="text-lg text-blue-700 font-semibold">•Few Surasak•</span>
         <span class="text-lg text-blue-700 font-semibold">กำลังโหลด...</span>
+        <span class="mt-1 text-xs text-blue-600" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
+        <span class="mt-1 text-xs text-amber-600" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน ช้ากว่าปกติเล็กน้อย</span>
       </div>
     </div>
 
@@ -99,7 +101,7 @@
           </svg>
         </template>
 
-        <span class="text-lg font-semibold text-gray-700 block md:hidden lg:block uppercase">{{ folder.name }}</span>
+        <span class="text-lg font-semibold text-gray-700 block md:hidden uppercase">{{ folder.name }}</span>
       </div>
     </div>
   </div>
@@ -108,6 +110,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, type CSSProperties } from 'vue'
 import { useRouter } from 'vue-router'
+import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'
+import { useNetworkStore } from '../store/useNetworkStore'
 
 import bee from '../assets/images/bee.png'
 import bee2 from '../assets/images/bee2.png'
@@ -150,6 +154,9 @@ const goToFolder = async (name: string) => {
 
 const showFloatingText = ref(true)
 const showTooltip = ref(false)
+
+// Network store and health check
+const net = useNetworkStore()
 
 /* ---------- Utilities ---------- */
 function preload(srcs: string[]) { srcs.forEach(s => { const i = new Image(); i.src = s }) }
@@ -331,7 +338,7 @@ const catLoadFrontIsA = ref(true) // ใช้เฉพาะ overlay loading
 let catLoadSwapInterval: number | undefined
 
 /* ---------- lifecycle ---------- */
-onMounted(() => {
+onMounted(async () => {
   document.title = 'PETTEXT - Home'
   preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2, polabear, polabear2, otter, otter2])
 
@@ -341,6 +348,13 @@ onMounted(() => {
   placeBeeCenter()
   rafBee = requestAnimationFrame(animateBee)
   rafCat = requestAnimationFrame(animateCat)
+
+  // Wait for API to be ready
+  const { healthOk, initialOk } = await waitApiReadyAndLoadInitial()
+  if (!healthOk || !initialOk) {
+    loading.value = false
+    return
+  }
 
   setTimeout(() => (loading.value = false), 800)
 
