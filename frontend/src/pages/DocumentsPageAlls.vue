@@ -100,25 +100,25 @@ Technical Implementation:
                     </div>
                     <div v-else class="grid gap-3">
                         <div v-for="roomItem in availableRooms" :key="roomItem.code"
-                            :class="[
-                                'rounded-xl border p-4 transition-all group',
-                                roomItem.player_count >= roomItem.max_players 
-                                    ? 'border-rose-400/30 bg-rose-500/5 cursor-not-allowed opacity-60' 
-                                    : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-400/30 cursor-pointer'
-                            ]"
-                            @click="roomItem.player_count < roomItem.max_players ? joinRoomByCode(roomItem.code) : null">
+                    :class="[
+                        'rounded-xl border p-4 transition-all group',
+                        (roomItem.player_count || 0) >= roomItem.max_players
+                            ? 'border-rose-400/30 bg-rose-500/5 cursor-not-allowed opacity-60'
+                            : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-400/30 cursor-pointer'
+                    ]"
+                    @click="(roomItem.player_count || 0) < roomItem.max_players ? joinRoomByCode(roomItem.code) : null">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div :class="[
                                         'w-3 h-3 rounded-full',
-                                        roomItem.player_count >= roomItem.max_players 
-                                            ? 'bg-rose-400' 
+                                        (roomItem.player_count || 0) >= roomItem.max_players
+                                            ? 'bg-rose-400'
                                             : 'bg-emerald-400 animate-pulse'
                                     ]"></div>
                                     <div>
                                         <div :class="[
                                             'font-semibold transition-colors',
-                                            roomItem.player_count >= roomItem.max_players
+                                            (roomItem.player_count || 0) >= roomItem.max_players
                                                 ? 'text-slate-400'
                                                 : 'text-slate-100 group-hover:text-indigo-200'
                                         ]">
@@ -129,15 +129,15 @@ Technical Implementation:
                                 </div>
                                 <div class="text-right">
                                     <div class="text-sm text-slate-300">
-                                        {{ roomItem.player_count }}/{{ roomItem.max_players }} ผู้เล่น
+                                        {{ roomItem.player_count || 0 }}/{{ roomItem.max_players }} ผู้เล่น
                                     </div>
                                     <div :class="[
                                         'text-xs font-medium',
-                                        roomItem.player_count >= roomItem.max_players
+                                        (roomItem.player_count || 0) >= roomItem.max_players
                                             ? 'text-rose-400'
                                             : 'text-emerald-400'
                                     ]">
-                                        {{ roomItem.player_count >= roomItem.max_players ? 'เต็มแล้ว' : 'พร้อมเข้าร่วม' }}
+                                        {{ (roomItem.player_count || 0) >= roomItem.max_players ? 'เต็มแล้ว' : 'พร้อมเข้าร่วม' }}
                                     </div>
                                 </div>
                             </div>
@@ -432,7 +432,13 @@ const net = useNetworkStore()
 const loading = ref(true)
 const soundOn = ref(true)
 
-type Room = { code: string; max_players: number; status: 'waiting' | 'playing' | 'finished' }
+type Room = { 
+  code: string; 
+  max_players: number; 
+  status: 'waiting' | 'playing' | 'finished'; 
+  player_count?: number;
+  owner_name?: string;
+}
 type Player = { name: string; is_owner: boolean; is_ready: boolean; score: number; is_out: boolean }
 type RoundPayload = { round_no: number; quiz_id: string; quiz_token: string; quiz_exp: number; seconds: number; level: number }
 

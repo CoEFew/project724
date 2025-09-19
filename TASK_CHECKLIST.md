@@ -40,7 +40,7 @@ Players can join a room, but when the host presses "Start Game," the UI for the 
 
 #### Phase 4 - Category System & Final Polish
 - [x] **Room Cleanup After Game Over** - Delete room and clear all players when match ends
-- [x] **Back Buttons Navigation** - All back buttons navigate to Home page
+- [x] **Back Buttons Navigation** - All back buttons use router.back() (as requested by user)
 - [x] **Party Scoreboard UI** - Add scoreboard using DocumentsPage.vue structure
 - [x] **Database Migration Category** - Add category column to quizzes table
 - [x] **Seed Data with Categories** - Update existing data with category column
