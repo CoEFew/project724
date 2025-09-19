@@ -608,6 +608,12 @@ function handleWs(m: any) {
             winner.value = m.winner ? normalizePlayer(m.winner) : null
             leaderboard.value = Array.isArray(m.leaderboard) ? m.leaderboard.map((x: any) => ({ name: x.name, score: x.score })) : []
             break
+            case 'round_failed':
+      // เซิร์ฟเวอร์บอกว่าเริ่มรอบไม่ได้ (เช่น quiz ไม่ว่าง / พอร์ตผิด)
+      phase.value = 'lobby'
+      if (m.room) room.value = normalizeRoom(m.room)
+      toast('เริ่มรอบไม่สำเร็จ', 'เซิร์ฟเวอร์ยังไม่พร้อม ลองกดเริ่มใหม่', 'error')
+      break
     }
 }
 function normalizeRoom(r: any): Room { return { code: r.code, max_players: r.maxPlayers ?? r.max_players ?? 4, status: r.status } }

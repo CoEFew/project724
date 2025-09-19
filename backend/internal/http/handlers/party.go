@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,7 +32,17 @@ WS:
 - ทุกข้อ โชว์ใบ้แรกได้จากฝั่ง FE (เราแค่เริ่มรอบใหม่)
 */
 
-func init() { rand.Seed(time.Now().UnixNano()) }
+func init() {
+	rand.Seed(time.Now().UnixNano())
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	} // dev ในเครื่อง
+	// เราเรียก endpoint /api/quiz ของแอพตัวเอง (same process)
+	quizBaseURL = "http://127.0.0.1:" + port
+	log.Printf("[party] quizBaseURL = %s", quizBaseURL)
+}
 
 type roomStatus string
 
@@ -82,11 +93,14 @@ type hubMsg struct {
 
 	// events
 	Name        string       `json:"name,omitempty"`
-	Guess       string       `json:"guess,omitempty"` // ✅ ส่งคำที่เดาครั้งล่าสุด (FE เก็บแสดงให้ "ฉัน" เห็นเท่านั้น)
+	Guess       string       `json:"guess,omitempty"`
 	Correct     *bool        `json:"correct,omitempty"`
 	Seconds     int          `json:"seconds,omitempty"`
 	Winner      *Player      `json:"winner,omitempty"`
 	Leaderboard []LeaderItem `json:"leaderboard,omitempty"`
+
+	// ✅ แจ้ง error ของรอบ/ระบบ
+	Error string `json:"error,omitempty"`
 }
 
 type roomState struct {
@@ -104,6 +118,11 @@ var rooms sync.Map // code -> *roomState
 var (
 	wsMu   sync.Mutex
 	wsConn = map[string]map[*websocket.Conn]struct{}{}
+)
+
+var (
+	quizBaseURL    string
+	httpQuizClient = &http.Client{Timeout: 5 * time.Second} // ✅ กันค้าง
 )
 
 func wsHubAdd(code string, c *websocket.Conn) {
@@ -513,7 +532,19 @@ func RoomWS(w http.ResponseWriter, r *http.Request) {
 func startRoundLocked(ctx context.Context, st *roomState, round int) {
 	q, err := getQuiz(ctx, 1) // level = 1 (ปรับได้)
 	if err != nil {
-		log.Println("getQuiz:", err)
+		// ❌ ดึงคำถามไม่ได้ (เช่น พอร์ตผิด / โปรเซสยังไม่ตื่น)
+		log.Printf("[party] getQuiz error: %v", err)
+		// กลับไป waiting เพื่อให้กดเริ่มใหม่
+		st.room.Status = statusWaiting
+		st.round = nil
+		st.seconds = 0
+		st.roundSolved = false
+
+		wsHubBroadcast(st.room.Code, hubMsg{
+			Type:  "round_failed",
+			Room:  st.room,
+			Error: "quiz_unavailable",
+		})
 		return
 	}
 	st.round = &RoundPayload{
@@ -525,10 +556,10 @@ func startRoundLocked(ctx context.Context, st *roomState, round int) {
 		Level:     1,
 	}
 	st.seconds = st.round.Seconds
-	st.roundSolved = false // ✅ เริ่มรอบใหม่ ต้องรีเซ็ตสถานะ
+	st.roundSolved = false
 
 	wsHubBroadcast(st.room.Code, hubMsg{Type: "round_started", Round: st.round})
-	go tickTimer(st, round) // ✅ ปะ round guard กัน timer เก่าทับ
+	go tickTimer(st, round) // guard ด้วย roundNo กัน timer เก่าทับ
 }
 
 func tickTimer(st *roomState, roundNo int) {
@@ -597,14 +628,17 @@ type quizResp struct {
 }
 
 func getQuiz(ctx context.Context, level int) (*quizResp, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:8080/api/quiz?level="+strconv.Itoa(level), nil)
-	res, err := http.DefaultClient.Do(req)
+	// ✅ ใช้พอร์ตจริงของโปรเซส
+	url := quizBaseURL + "/api/quiz?level=" + strconv.Itoa(level)
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	res, err := httpQuizClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, errors.New("quiz server error")
+		return nil, errors.New("quiz server error: " + res.Status)
 	}
 	var out quizResp
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
@@ -614,16 +648,18 @@ func getQuiz(ctx context.Context, level int) (*quizResp, error) {
 }
 
 func checkQuiz(ctx context.Context, id, token string, exp int64, guess string) (bool, error) {
+	url := quizBaseURL + "/api/quiz/check"
 	body := strings.NewReader(`{"id":"` + id + `","token":"` + token + `","exp":` + strconv.FormatInt(exp, 10) + `,"guess":"` + jsonEscape(guess) + `"}`)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://127.0.0.1:8080/api/quiz/check", body)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+
+	res, err := httpQuizClient.Do(req)
 	if err != nil {
 		return false, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return false, errors.New("quiz check error")
+		return false, errors.New("quiz check error: " + res.Status)
 	}
 	var out struct {
 		Correct bool `json:"correct"`
