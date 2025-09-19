@@ -2,7 +2,6 @@ package http
 
 import (
 	"my-app-backend/internal/http/handlers"
-	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -41,10 +40,6 @@ func NewRouter() *chi.Mux {
 
 	// WebSocket
 	r.Get("/ws/rooms/{code}", handlers.RoomWS)
-
-	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	})
 
 	return r
 }
