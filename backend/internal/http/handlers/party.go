@@ -305,6 +305,7 @@ func ReadyRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/rooms/{code}/start {ownerName}
+// POST /api/rooms/{code}/start {ownerName}
 func StartRoom(w http.ResponseWriter, r *http.Request) {
 	code := roomCode(r)
 	st := getState(code)
@@ -323,19 +324,46 @@ func StartRoom(w http.ResponseWriter, r *http.Request) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
-	if st.room.Status != statusWaiting {
-		http.Error(w, "already started", http.StatusConflict)
-		return
-	}
 	owner := findPlayer(st.players, in.OwnerName)
 	if owner == nil || !owner.IsOwner {
 		http.Error(w, "only owner can start", http.StatusForbidden)
 		return
 	}
 
+	// ✅ ถ้าเริ่มไปแล้ว ให้ตอบ 200 เฉย ๆ (idempotent) ไม่ส่ง 409
+	if st.room.Status == statusPlaying {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":   true,
+			"note": "already_started",
+		})
+		return
+	}
+	if st.room.Status == statusFinished {
+		http.Error(w, "game finished", http.StatusConflict)
+		return
+	}
+
 	st.room.Status = statusPlaying
 	startRoundLocked(r.Context(), st, 1)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// GET /api/rooms/{code}/snapshot
+func RoomSnapshot(w http.ResponseWriter, r *http.Request) {
+	code := roomCode(r)
+	st := getState(code)
+	if st == nil {
+		http.NotFound(w, r)
+		return
+	}
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	writeJSON(w, http.StatusOK, hubMsg{
+		Type:    "snapshot",
+		Room:    st.room,
+		Players: clonePlayers(st.players),
+		Round:   st.round,
+	})
 }
 
 // POST /api/rooms/{code}/guess {name, guess}

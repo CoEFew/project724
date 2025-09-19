@@ -463,17 +463,39 @@ async function toggleReady() {
         toast('เปลี่ยนสถานะพร้อมล้มเหลว', e?.message || 'network error', 'error')
     }
 }
-async function startGame() {
+
+async function safePullSnapshot() {
+  try {
     if (!room.value) return
-    starting.value = true
-    try {
-        await api.post(`/api/rooms/${room.value.code}/start`, { ownerName: playerName.value })
-    } catch (e: any) {
-        toast('เริ่มเกมล้มเหลว', e?.message || 'network error', 'error')
-    } finally {
-        starting.value = false
+    const res = await api.get(`/api/rooms/${room.value.code}/snapshot`)
+    const m = res.data
+    if (m?.room) room.value = normalizeRoom(m.room)
+    if (Array.isArray(m?.players)) players.value = m.players.map(normalizePlayer)
+    if (m?.round) {
+      round.value = normalizeRound(m.round)
+      phase.value = 'playing'
+      remainSeconds.value = m.round.seconds || 60
+      fetchFirstHintIfAny()
     }
+  } catch {/* ignore */}
 }
+
+async function startGame() {
+  if (!room.value) return
+  starting.value = true
+  try {
+    await api.post(`/api/rooms/${room.value.code}/start`, { ownerName: playerName.value })
+  } catch (e:any) {
+    // บน Render บางที WS มาช้า → fallback ดึง snapshot
+    await safePullSnapshot()
+    // ไม่เด้ง error ถ้าเป็น 409/started ไปแล้ว
+    const msg = String(e?.response?.status || '')
+    if (msg !== '409') toast('เริ่มเกมล้มเหลว', e?.message || 'network error', 'error')
+  } finally {
+    starting.value = false
+  }
+}
+
 // async function hardLeave() {
 //   try {
 //     if (room.value && playerName.value) {
@@ -490,33 +512,41 @@ async function restartRoom() {
 }
 
 /** ---------- auto-start: owner เริ่มเมื่อพร้อม ---------- */
+const autostarted = ref(false)
+
 const allReady = computed(() => players.value.length > 0 && players.value.every(p => p.is_ready))
 watch([players, joined, () => meReady.value], async () => {
-    if (!joined.value || !isOwner.value || !room.value) return
-    if (starting.value) return
-    const soloReady = players.value.length === 1 && meReady.value
-    if (soloReady || allReady.value) {
-        try {
-            starting.value = true
-            await api.post(`/api/rooms/${room.value.code}/start`, { ownerName: playerName.value })
-        } catch (e: any) {
-            toast('เริ่มเกมอัตโนมัติไม่สำเร็จ', e?.message || 'network error', 'error')
-        } finally {
-            starting.value = false
-        }
+  if (!joined.value || !isOwner.value || !room.value) return
+  if (starting.value || autostarted.value) return
+  const soloReady = players.value.length === 1 && meReady.value
+  if (soloReady || allReady.value) {
+    try {
+      starting.value = true
+      autostarted.value = true         // ✅ กันยิงซ้ำ
+      await api.post(`/api/rooms/${room.value.code}/start`, { ownerName: playerName.value })
+    } catch (e:any) {
+      // ถ้า 409/200 ก็ปล่อยผ่าน (idempotent แล้ว) และดึง snapshot เผื่อ WS ไม่มา
+      await safePullSnapshot()
+    } finally {
+      starting.value = false
     }
+  }
 }, { deep: true })
+
 
 /** ---------- WS ---------- */
 function connectWS() {
-    if (!room.value) return
-    const base = new URL((api as any).defaults?.baseURL || `${location.protocol}//${location.host}`)
-    const wsProto = base.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsOrigin = `${wsProto}//${base.host}`
-    ws = new WebSocket(`${wsOrigin}/ws/rooms/${room.value.code}`)
-    ws.onmessage = (ev) => { try { handleWs(JSON.parse(ev.data)) } catch { } }
-    ws.onerror = () => { toast('การเชื่อมต่อเรียลไทม์ผิดพลาด', 'กำลังพยายามเชื่อมใหม่…', 'error') }
+  if (!room.value) return
+  const base = new URL((api as any).defaults?.baseURL || `${location.protocol}//${location.host}`)
+  const wsProto = base.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsOrigin = `${wsProto}//${base.host}`
+  ws = new WebSocket(`${wsOrigin}/ws/rooms/${room.value.code}`)
+  ws.onopen = () => console.info('[WS] connected', wsOrigin)
+  ws.onclose = (ev) => console.warn('[WS] closed', ev.code, ev.reason)
+  ws.onmessage = (ev) => { try { handleWs(JSON.parse(ev.data)) } catch (e){ console.error('WS parse', e) } }
+  ws.onerror = () => { toast('การเชื่อมต่อเรียลไทม์ผิดพลาด', 'กำลังพยายามเชื่อมใหม่…', 'error') }
 }
+
 
 async function fetchFirstHintIfAny() {
     // ทุกข้อโชว์ใบ้แรกเลย
