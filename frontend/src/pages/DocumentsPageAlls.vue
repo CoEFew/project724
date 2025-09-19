@@ -399,6 +399,8 @@ async function bootstrapFromCode(code: string) {
     loading.value = true
 
     try {
+        // ✅ รอ BE ตื่น (สำคัญมากบน Render)
+        await waitApiUp()
         room.value = { code, max_players: 4, status: 'waiting' }
         loading.value = false
         await joinRoom()
@@ -408,8 +410,29 @@ async function bootstrapFromCode(code: string) {
     }
 }
 
+// เพิ่ม util ง่าย ๆ ไว้ในไฟล์เดียวกัน (หรือ import จาก composable เดิมก็ได้)
+async function waitApiUp(maxWaitMs = 20000) {
+  const start = Date.now()
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const res = await api.get('/health', { timeout: 4000 })
+      if (String(res.data).toLowerCase().includes('ok')) return true
+    } catch {}
+    await new Promise(r => setTimeout(r, 1200)) // เว้น 1.2s ให้ instance ตื่น
+  }
+  return false
+}
+
+
 onMounted(async () => {
     ensureName()
+
+const ok = await waitApiUp()
+  if (!ok) {
+    toast('เครือข่ายช้า', 'กำลังปลุกเซิร์ฟเวอร์ ลองใหม่อีกครั้ง', 'error')
+    // ยังไปต่อได้ ระบบจะ retry ใน action ต่อไป
+  }
+
     const rawParam = (route.params.code as string | undefined) || ''
     const pathTail = window.location.pathname.split('/').pop() || ''
     const paramCode = (rawParam || pathTail).toUpperCase()
