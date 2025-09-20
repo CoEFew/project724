@@ -93,10 +93,10 @@ async function safePush(to: any) {
 }
 
 const goBack = () => router.back()
-const goSolo        = () => safePush({ name: 'DocumentsPage' }) // เดี่ยว (มีเวลา)
+const goSolo        = () => safePush({ name: 'CategorySelection' }) // เดี่ยว (มีเวลา) - ไปเลือกหมวดหมู่ก่อน
 const goParty       = () => safePush({ name: 'DocumentsPageAlls' }) // ปาร์ตี้
-// ✅ เดี่ยว (ไม่จับเวลา): ใช้ query แทนการแยก route
-const goSoloNoTimer = () => safePush({ name: 'DocumentsPage', query: { noTimer: '1' } })
+// ✅ เดี่ยว (ไม่จับเวลา): ไปเลือกหมวดหมู่ก่อน
+const goSoloNoTimer = () => safePush({ name: 'CategorySelection', query: { noTimer: '1' } })
 </script>
 
 <style scoped>

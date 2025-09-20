@@ -170,7 +170,7 @@ Technical Implementation:
                 <!-- Category Selection -->
                 <div v-if="!joined && !room" class="space-y-3">
                     <h3 class="text-lg font-semibold text-indigo-100 text-center">เลือกหมวดหมู่</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-3">
                         <button @click="selectedCategory = 'สัตว์'" 
                             :class="['p-3 rounded-xl border transition-all', selectedCategory === 'สัตว์' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
                             <div class="text-center">
@@ -183,6 +183,28 @@ Technical Implementation:
                             <div class="text-center">
                                 <div class="text-xl mb-1">⚡</div>
                                 <div class="font-medium text-sm">เครื่องใช้ไฟฟ้า</div>
+                            </div>
+                        </button>
+                        <button @click="selectedCategory = 'ผลไม้'" 
+                            :class="['p-3 rounded-xl border transition-all', selectedCategory === 'ผลไม้' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+                            <div class="text-center">
+                                <div class="text-xl mb-1">🍎</div>
+                                <div class="font-medium text-sm">ผลไม้</div>
+                            </div>
+                        </button>
+                        <button @click="selectedCategory = 'อาชีพ'" 
+                            :class="['p-3 rounded-xl border transition-all', selectedCategory === 'อาชีพ' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+                            <div class="text-center">
+                                <div class="text-xl mb-1">👨‍💼</div>
+                                <div class="font-medium text-sm">อาชีพ</div>
+                            </div>
+                        </button>
+                        <button @click="selectRandomCategory" 
+                            :class="['p-3 rounded-xl border transition-all col-span-2', selectedCategory === 'Random' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
+                            <div class="text-center">
+                                <div class="text-xl mb-1">🎲</div>
+                                <div class="font-medium text-sm">สุ่มหมวดหมู่</div>
+                                <div class="text-xs opacity-80">สุ่มจากสัตว์, เครื่องใช้ไฟฟ้า, ผลไม้, อาชีพ</div>
                             </div>
                         </button>
                     </div>
@@ -374,9 +396,9 @@ Technical Implementation:
                     </div>
                 </div>
 
-                <!-- Scoreboard -->
+                <!-- Current Game Scoreboard -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <h4 class="text-lg font-bold text-indigo-100 mb-3 text-center">ตารางคะแนน</h4>
+                    <h4 class="text-lg font-bold text-indigo-100 mb-3 text-center">ตารางคะแนนรอบนี้</h4>
                     <ul class="divide-y divide-white/10">
                         <li v-for="(l, idx) in leaderboard" :key="l.name"
                             class="py-3 flex items-center justify-between text-sm text-slate-100">
@@ -391,6 +413,37 @@ Technical Implementation:
                                     }}</span>
                             </div>
                             <div class="tabular-nums font-semibold text-lg">{{ l.score }} คะแนน</div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Top 10 Leaderboard -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-lg font-bold text-indigo-100">สถิติผู้เล่น TOP 10</h4>
+                        <button @click="loadTopScores"
+                            class="text-xs px-3 py-1 rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 transition"
+                            title="รีเฟรชสถิติ" type="button">
+                            รีเฟรช
+                        </button>
+                    </div>
+
+                    <p v-if="topScores.length === 0" class="text-slate-300/70 text-sm mt-2">ยังไม่มีสถิติ
+                        แสดงเมื่อมีการบันทึกคะแนน</p>
+
+                    <ul v-else class="mt-2 divide-y divide-white/10">
+                        <li v-for="(item, idx) in topScores" :key="item.name + '_' + item.score + '_' + idx"
+                            class="py-2 flex items-center justify-between text-sm text-slate-100">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-6 text-center">
+                                    <template v-if="idx === 0">🥇</template>
+                                    <template v-else-if="idx === 1">🥈</template>
+                                    <template v-else-if="idx === 2">🥉</template>
+                                    <template v-else>{{ idx + 1 }}.</template>
+                                </span>
+                                <span class="font-medium truncate max-w-[8rem] sm:max-w-[12rem]" :title="item.name">{{ item.name }}</span>
+                            </div>
+                            <div class="tabular-nums font-semibold text-base">{{ item.score }} คะแนน</div>
                         </li>
                     </ul>
                 </div>
@@ -447,6 +500,7 @@ const players = ref<Player[]>([])
 const round = ref<RoundPayload | null>(null)
 const availableRooms = ref<Room[]>([])
 const selectedCategory = ref('สัตว์') // Default to animals
+const topScores = ref<{ name: string; score: number }[]>([]) // Top 10 leaderboard scores
 
 const phase = ref<'lobby' | 'playing' | 'over'>('lobby')
 const joined = ref(false)
@@ -516,18 +570,42 @@ async function joinRoomByCode(code: string) {
     router.push({ name: 'DocumentsPageRoom', params: { code } })
 }
 
+/**
+ * Select a random category from the available categories
+ * This function randomly picks one of: Animals, Electronics, Fruits, Jobs
+ */
+function selectRandomCategory() {
+    const categories = ['สัตว์', 'เครื่องใช้ไฟฟ้า', 'ผลไม้', 'อาชีพ']
+    const randomIndex = Math.floor(Math.random() * categories.length)
+    selectedCategory.value = 'Random'
+    // Store the actual selected category for API calls
+    ;(selectedCategory as any).actualCategory = categories[randomIndex]
+    toast('สุ่มหมวดหมู่แล้ว', `เลือกหมวดหมู่: ${categories[randomIndex]}`, 'success')
+}
+
 async function createRoom() {
     if (!playerName.value.trim()) {
         toast('กรุณากรอกชื่อ', 'ต้องกรอกชื่อก่อนสร้างห้อง', 'error')
         return
     }
+    if (!selectedCategory.value) {
+        toast('กรุณาเลือกหมวดหมู่', 'ต้องเลือกหมวดหมู่ก่อนสร้างห้อง', 'error')
+        return
+    }
     creating.value = true
     try {
-        const res = await api.post('/api/rooms', { ownerName: playerName.value.trim(), maxPlayers: 4, category: selectedCategory.value })
+        // Use actual category if Random is selected, otherwise use selected category
+        const categoryToUse = (selectedCategory as any).actualCategory || selectedCategory.value
+        const res = await api.post('/api/rooms', { 
+            ownerName: playerName.value.trim(), 
+            maxPlayers: 4, 
+            category: categoryToUse 
+        })
         const r = res.data.room
         room.value = { code: r.code, max_players: r.maxPlayers, status: r.status }
         await joinRoom()
     } catch (e: any) {
+        console.error('Failed to create room:', e)
         toast('สร้างห้องล้มเหลว', e?.message || 'network error', 'error')
     } finally {
         creating.value = false
@@ -591,7 +669,16 @@ function cleanupLocalStorage() {
     localStorage.removeItem('party_name')
 }
 
-function goBack() {
+async function goBack() {
+    // Leave room if currently joined
+    if (joined.value && room.value) {
+        try {
+            await api.post(`/api/rooms/${room.value.code}/leave`, { name: playerName.value })
+        } catch (e: any) {
+            console.warn('Failed to leave room:', e?.message || e)
+        }
+    }
+    
     // Clean up localStorage when leaving room
     cleanupLocalStorage()
     
@@ -687,6 +774,33 @@ onMounted(async () => {
         return
     }
     
+    // Load top scores for leaderboard
+    await loadTopScores()
+    
+    // Add event listeners for auto-removing disconnected players
+    const handleBeforeUnload = () => {
+        if (joined.value && room.value) {
+            // Send leave request when user closes browser/tab
+            navigator.sendBeacon(`/api/rooms/${room.value.code}/leave`, JSON.stringify({ name: playerName.value }))
+        }
+    }
+    
+    const handleVisibilityChange = () => {
+        if (document.hidden && joined.value && room.value) {
+            // Player switched tabs or minimized browser
+            // Note: We don't auto-leave here as they might come back
+        }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    // Store cleanup function for onBeforeUnmount
+    ;(window as any)._cleanupPartyListeners = () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+    
     const rawParam = (route.params.code as string | undefined) || ''
     const pathTail = window.location.pathname.split('/').pop() || ''
     const paramCode = (rawParam || pathTail).toUpperCase()
@@ -716,6 +830,10 @@ onBeforeUnmount(() => {
     try { ws?.close() } catch { } 
     // Clean up localStorage when component is unmounted
     cleanupLocalStorage()
+    // Clean up event listeners
+    if ((window as any)._cleanupPartyListeners) {
+        (window as any)._cleanupPartyListeners()
+    }
 })
 
 /** ---------- actions ---------- */
@@ -933,14 +1051,7 @@ function handleWs(m: any) {
             revealAnswer()
             // Save scores to database
             saveMultiplayerScores()
-            // Clean up room state and redirect to lobby after a delay
-            setTimeout(() => {
-                cleanupLocalStorage()
-                room.value = null
-                players.value = []
-                phase.value = 'lobby'
-                router.push({ name: 'DocumentsPageAlls' })
-            }, 5000) // 5 second delay to show results
+            // Keep game view shown - players must explicitly click Leave Room or Restart
             break
             case 'round_failed':
       // เซิร์ฟเวอร์บอกว่าเริ่มรอบไม่ได้ (เช่น quiz ไม่ว่าง / พอร์ตผิด)
@@ -1003,9 +1114,26 @@ async function saveMultiplayerScores() {
             })
         }
         toast('บันทึกคะแนน', 'คะแนนของทุกคนถูกบันทึกแล้ว', 'success')
+        // Reload top scores after saving
+        await loadTopScores()
     } catch (e: any) {
         console.warn('Failed to save multiplayer scores:', e?.message || e)
         toast('บันทึกคะแนนล้มเหลว', 'ไม่สามารถบันทึกคะแนนได้', 'error')
+    }
+}
+
+async function loadTopScores() {
+    try {
+        const res = await api.get('/api/scores', { 
+            params: { 
+                limit: 10, 
+                gamename: 'DogPuzzleParty' 
+            } 
+        })
+        topScores.value = (res.data || []).slice(0, 10)
+    } catch (e: any) {
+        console.warn('Failed to load top scores:', e?.message || e)
+        toast('โหลดสถิติล้มเหลว', e?.message || 'network error', 'error')
     }
 }
 

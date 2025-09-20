@@ -7,6 +7,7 @@ import FeedbackPage from "../pages/FeedbackPage.vue";
 import CatGame from "../pages/CatGame.vue";
 // import DocumentsPageAlls from "../pages/DocumentsPageAlls.vue";
 import DogAll from '../pages/DogAll.vue'
+import CategorySelection from '../pages/CategorySelection.vue'
 
 const routes = [
   { path: "/", component: Home },
@@ -16,8 +17,9 @@ const routes = [
   { path: "/PolaJigsaw", name: "JigsawPage", component: JigsawPage },
   { path: "/Feedback", name: "FeedbackPage", component: FeedbackPage },
   { path: "/party", name: "DocumentsPageAlls", component: () => import("../pages/DocumentsPageAlls.vue") },
-{ path: "/party/:code", name: "DocumentsPageRoom", component: () => import("../pages/DocumentsPageAlls.vue"), props: true },
- { path: '/dog', name: 'DogAll', component: DogAll },
+  { path: "/party/:code", name: "DocumentsPageRoom", component: () => import("../pages/DocumentsPageAlls.vue"), props: true },
+  { path: '/dog', name: 'DogAll', component: DogAll },
+  { path: '/category-selection', name: 'CategorySelection', component: CategorySelection },
 
 ];
 

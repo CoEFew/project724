@@ -51,29 +51,15 @@
         <p class="text-slate-300/80 text-xs md:text-sm text-center"><span class="text-lg">🐕</span></p>
       </header>
 
-      <!-- Category Selection -->
-      <section v-if="!showModal && !quizId" class="w-full max-w-xl mx-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.35)] p-6 space-y-5">
-        <h2 class="text-xl md:text-2xl font-extrabold text-indigo-100 tracking-wide text-center">เลือกหมวดหมู่</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button @click="selectCategory('สัตว์')" 
-            :class="['p-4 rounded-xl border transition-all', selectedCategory === 'สัตว์' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
-            <div class="text-center">
-              <div class="text-2xl mb-2">🐕</div>
-              <div class="font-semibold">สัตว์</div>
-              <div class="text-xs opacity-80">สัตว์ต่างๆ ในโลก</div>
-            </div>
-          </button>
-          <button @click="selectCategory('เครื่องใช้ไฟฟ้า')" 
-            :class="['p-4 rounded-xl border transition-all', selectedCategory === 'เครื่องใช้ไฟฟ้า' ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10']">
-            <div class="text-center">
-              <div class="text-2xl mb-2">⚡</div>
-              <div class="font-semibold">เครื่องใช้ไฟฟ้า</div>
-              <div class="text-xs opacity-80">อุปกรณ์ไฟฟ้าต่างๆ</div>
-            </div>
-          </button>
+      <!-- Game Mode Info -->
+      <section v-if="!showModal && !quizId" class="w-full max-w-2xl mx-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.35)] p-6 space-y-5">
+        <h2 class="text-xl md:text-2xl font-extrabold text-indigo-100 tracking-wide text-center">เกมเริ่มแล้ว!</h2>
+        <div class="text-center">
+          <p class="text-slate-300 mb-4">หมวดหมู่: <span class="font-semibold text-indigo-200">{{ selectedCategory || 'กำลังโหลด...' }}</span></p>
+          <p class="text-sm text-slate-400">{{ noTimer ? 'โหมดไม่จับเวลา - เล่นสบาย ๆ' : 'โหมดจับเวลา - เร็ว ๆ หน่อย!' }}</p>
         </div>
-        <button @click="startGame" :disabled="!selectedCategory"
-          class="w-full px-4 py-3 rounded-xl font-semibold transition bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed shadow">
+        <button @click="startGame" 
+          class="w-full px-4 py-3 rounded-xl font-semibold transition bg-indigo-500 text-white hover:bg-indigo-400 shadow">
           เริ่มเกม
         </button>
       </section>
@@ -355,6 +341,9 @@ const quizToken = ref('')
 const quizExp = ref(0)
 const placeholder = computed(() => `พิมพ์คำตอบที่นี่…`)
 
+// Get category from route query
+selectedCategory.value = (route.query.category as string) || ''
+
 const guess = ref('')
 const result = ref<null | boolean>(null)
 const hint1 = ref('')
@@ -537,13 +526,25 @@ async function apiPost(path: string, body?: any, retry = 1) {
 }
 
 /* ===================== Core Game Flows ===================== */
-function selectCategory(category: string) {
-  selectedCategory.value = category
-}
-
+/**
+ * Start the game with the selected category
+ * This function initializes the game and fetches the first quiz
+ */
 async function startGame() {
-  if (!selectedCategory.value) return
-  await fetchQuiz()
+  try {
+    if (!selectedCategory.value) {
+      toast('เกิดข้อผิดพลาด', 'ไม่พบหมวดหมู่ที่เลือก กรุณาเลือกหมวดหมู่ใหม่', 'error')
+      // Redirect back to category selection
+      router.push({ name: 'CategorySelection' })
+      return
+    }
+    
+    console.log('Starting game with category:', selectedCategory.value)
+    await fetchQuiz()
+  } catch (error) {
+    console.error('Error starting game:', error)
+    toast('เกิดข้อผิดพลาด', 'ไม่สามารถเริ่มเกมได้', 'error')
+  }
 }
 
 async function fetchQuiz(isAuto = false) {
@@ -554,7 +555,9 @@ async function fetchQuiz(isAuto = false) {
 
     const params: any = { level: currentLevel.value }
     if (selectedCategory.value) {
-      params.category = selectedCategory.value
+      // Use actual category if Random is selected, otherwise use selected category
+      const categoryToUse = (selectedCategory as any).actualCategory || selectedCategory.value
+      params.category = categoryToUse
     }
     const res = await apiGet('/api/quiz', params)
     quizId.value = res.data.id
@@ -826,6 +829,14 @@ onMounted(async () => {
   catwalkInterval = window.setInterval(() => {
     catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
   }, 200)
+
+  // Validate category selection
+  if (!selectedCategory.value) {
+    console.warn('No category selected, redirecting to category selection')
+    toast('กรุณาเลือกหมวดหมู่', 'ไม่พบหมวดหมู่ที่เลือก', 'error')
+    router.push({ name: 'CategorySelection' })
+    return
+  }
 
   const { healthOk, initialOk } = await waitApiReadyAndLoadInitial()
   if (healthOk && initialOk) {
