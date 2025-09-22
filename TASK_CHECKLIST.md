@@ -142,6 +142,15 @@ Players can join a room, but when the host presses "Start Game," the UI for the 
 - [x] **Enhanced Error Handling** - Implement robust error handling in both frontend and backend
 - [x] **Code Quality & Documentation** - Ensure all tags/blocks are properly closed and add comprehensive documentation
 
+#### Phase 15 - UI/UX Improvements & Enhanced Gameplay
+- [x] **Back Button Positioning** - Ensure all Back buttons are consistently positioned on the left side across all pages
+- [x] **Modern CSS Styling** - Update DogQuestion.vue and DogQuestionAll.vue to use modern InfoCard component matching site theme
+- [x] **Mistakes Counter Display** - Add mistakes counter (e.g., 1/3, 2/3, 3/3) to DogQuestion.vue game interface
+- [x] **No-Timer Mode Enhancement** - Ensure timer function properly stops in no-timer mode for DogQuestion.vue
+- [x] **Timeout Handling** - When time runs out and user hasn't selected/confirmed answer, treat as incorrect and advance to next question
+- [x] **Robust Error Handling** - Comprehensive error handling throughout the application with user-friendly messages
+- [x] **Code Quality Assurance** - Ensure all HTML tags and Vue blocks are properly closed with detailed explanations
+
 ## Implementation Notes
 
 ### Backend Changes Required

@@ -384,7 +384,7 @@ Technical Implementation:
 /* ===================== Imports ===================== */
 import LoadingOverlay from '../components/LoadingOverlay.vue'
 import api from '../services/api'
-import { ref, onMounted, onBeforeUnmount, computed, defineComponent, h } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, defineComponent, h, type PropType } from 'vue'
 import { useRouter } from 'vue-router'
 import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'
 
@@ -1400,19 +1400,23 @@ onBeforeUnmount(() => {
 
 /* ===================== Components ===================== */
 const InfoCard = defineComponent({
+  name: 'InfoCard',
   props: {
-    label: String,
-    value: [String, Number],
-    accent: String
+    label: { type: String, required: true },
+    value: { type: [String, Number], required: true },
+    accent: { type: String as PropType<'indigo' | 'sky' | 'fuchsia' | 'emerald' | 'rose'>, required: true }
   },
   setup(props) {
-    return () => h('div', {
-      class: 'rounded-xl border border-white/10 bg-white/5 p-3 text-center'
-    }, [
-      h('div', { class: 'text-xs text-slate-400 mb-1' }, props.label),
-      h('div', { 
-        class: `text-lg font-bold tabular-nums text-${props.accent}-300` 
-      }, props.value)
+    const base = 'rounded-xl py-2.5 px-4 text-center border '
+    const cls =
+      props.accent === 'indigo' ? base + 'bg-indigo-400/10 border-indigo-300/20' :
+        props.accent === 'sky' ? base + 'bg-sky-400/10 border-sky-300/20' :
+          props.accent === 'fuchsia' ? base + 'bg-fuchsia-400/10 border-fuchsia-300/20' :
+            props.accent === 'rose' ? base + 'bg-rose-400/10 border-rose-300/20' :
+              base + 'bg-emerald-400/10 border-emerald-300/20'
+    return () => h('div', { class: cls }, [
+      h('div', { class: 'text-[11px] font-semibold text-slate-200/90 tracking-wide' }, props.label),
+      h('div', { class: 'mt-0.5 text-2xl font-bold text-slate-100 tabular-nums' }, String(props.value)),
     ])
   }
 })

@@ -88,10 +88,11 @@ Technical Implementation:
           <h2 class="text-xl md:text-2xl font-extrabold text-indigo-100 tracking-wide text-center">เก่งจริงก็ทายมาดิ!
           </h2>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <InfoCard label="คะแนน" :value="score" accent="indigo" />
             <InfoCard label="เวลาคงเหลือ" :value="noTimer ? 'ไม่จำกัดเวลา' : timer + ' วินาที'" accent="sky" />
             <InfoCard label="ระดับ" :value="'Lv. ' + currentLevel" accent="fuchsia" />
+            <InfoCard label="ข้อผิด" :value="wrongAnswerCount + '/' + maxWrongAnswers" accent="rose" />
           </div>
 
           <!-- Progress & proximity meter -->
@@ -1125,10 +1126,23 @@ function startTimer() {
  */
 function handleTimeUp() {
   try {
-    if (selectedChoice.value === null) {
-      // No answer selected
+    // Check if user hasn't selected or confirmed an answer
+    if (selectedChoice.value === null || confirmedChoice.value === null) {
+      // No answer selected or confirmed - treat as incorrect
       toast('หมดเวลา!', `คำตอบที่ถูกต้องคือ: ${correctAnswer.value}`, 'error')
       revealedAnswer.value = correctAnswer.value
+      
+      // Increment wrong answer count
+      wrongAnswerCount.value++
+      
+      // Check if this is the 3rd wrong answer
+      if (wrongAnswerCount.value >= maxWrongAnswers) {
+        toast('เกมจบ!', 'ตอบผิด 3 ครั้งแล้ว', 'error')
+        setTimeout(() => {
+          endGame()
+        }, 2000)
+        return
+      }
       
       // Move to next question after delay
       setTimeout(() => {
@@ -1283,19 +1297,23 @@ async function waitApiReadyAndLoadInitial() {
 
 /* ===================== Components ===================== */
 const InfoCard = defineComponent({
+  name: 'InfoCard',
   props: {
-    label: String,
-    value: [String, Number],
-    accent: String
+    label: { type: String, required: true },
+    value: { type: [String, Number], required: true },
+    accent: { type: String as PropType<'indigo' | 'sky' | 'fuchsia' | 'emerald' | 'rose'>, required: true }
   },
   setup(props) {
-    return () => h('div', {
-      class: 'rounded-xl border border-white/10 bg-white/5 p-3 text-center'
-    }, [
-      h('div', { class: 'text-xs text-slate-400 mb-1' }, props.label),
-      h('div', { 
-        class: `text-lg font-bold tabular-nums text-${props.accent}-300` 
-      }, props.value)
+    const base = 'rounded-xl py-2.5 px-4 text-center border '
+    const cls =
+      props.accent === 'indigo' ? base + 'bg-indigo-400/10 border-indigo-300/20' :
+        props.accent === 'sky' ? base + 'bg-sky-400/10 border-sky-300/20' :
+          props.accent === 'fuchsia' ? base + 'bg-fuchsia-400/10 border-fuchsia-300/20' :
+            props.accent === 'rose' ? base + 'bg-rose-400/10 border-rose-300/20' :
+              base + 'bg-emerald-400/10 border-emerald-300/20'
+    return () => h('div', { class: cls }, [
+      h('div', { class: 'text-[11px] font-semibold text-slate-200/90 tracking-wide' }, props.label),
+      h('div', { class: 'mt-0.5 text-2xl font-bold text-slate-100 tabular-nums' }, String(props.value)),
     ])
   }
 })
