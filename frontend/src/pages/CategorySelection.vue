@@ -171,7 +171,7 @@ function selectRandomCategory() {
 
 /**
  * Start the game with the selected category
- * Navigates to DocumentsPage with the selected category and game mode
+ * Navigates to the appropriate page based on game mode
  */
 async function startGame() {
   try {
@@ -183,19 +183,31 @@ async function startGame() {
     // Prepare the actual category for the game
     const actualCategory = (selectedCategory as any).actualCategory || selectedCategory.value
     
-    // Navigate to DocumentsPage with category and game mode
+    // Check if multiple-choice mode is requested
+    const isMultipleChoiceMode = route.query.mode === 'multiple-choice'
+    
+    // Navigate to the appropriate page with category and game mode
     const query: any = {}
     if (route.query.noTimer === '1') {
       query.noTimer = '1'
     }
     query.category = actualCategory
 
-    await router.push({
-      name: 'DocumentsPage',
-      query
-    })
-    
-    console.log('Starting game with category:', actualCategory)
+    if (isMultipleChoiceMode) {
+      // Navigate to DogQuestion for multiple-choice mode
+      await router.push({
+        name: 'DogQuestion',
+        query
+      })
+      console.log('Starting multiple-choice game with category:', actualCategory)
+    } else {
+      // Navigate to DocumentsPage for typing mode
+      await router.push({
+        name: 'DocumentsPage',
+        query
+      })
+      console.log('Starting typing game with category:', actualCategory)
+    }
   } catch (error) {
     console.error('Error starting game:', error)
     showToast('เกิดข้อผิดพลาด', 'ไม่สามารถเริ่มเกมได้', 'error')

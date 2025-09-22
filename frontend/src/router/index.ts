@@ -8,6 +8,8 @@ import CatGame from "../pages/CatGame.vue";
 // import DocumentsPageAlls from "../pages/DocumentsPageAlls.vue";
 import DogAll from '../pages/DogAll.vue'
 import CategorySelection from '../pages/CategorySelection.vue'
+import DogQuestion from '../pages/DogQuestion.vue'
+import DogQuestionAll from '../pages/DogQuestionAll.vue'
 
 const routes = [
   { path: "/", component: Home },
@@ -20,6 +22,8 @@ const routes = [
   { path: "/party/:code", name: "DocumentsPageRoom", component: () => import("../pages/DocumentsPageAlls.vue"), props: true },
   { path: '/dog', name: 'DogAll', component: DogAll },
   { path: '/category-selection', name: 'CategorySelection', component: CategorySelection },
+  { path: '/dog-question', name: 'DogQuestion', component: DogQuestion },
+  { path: '/dog-question-party', name: 'DogQuestionAll', component: DogQuestionAll },
 
 ];
 

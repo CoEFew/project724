@@ -103,7 +103,7 @@ func GetQuiz(w http.ResponseWriter, r *http.Request) {
 
 	var q db.QuizRow
 	var err error
-	
+
 	// Try to get quiz by category first, fallback to any tier if not found
 	if category != "" {
 		q, err = db.GetRandomQuizByTierAndCategory(r.Context(), tier, category)
@@ -114,7 +114,7 @@ func GetQuiz(w http.ResponseWriter, r *http.Request) {
 	} else {
 		q, err = db.GetRandomQuizByTier(r.Context(), tier)
 	}
-	
+
 	if err != nil {
 		if errors.Is(err, db.ErrNoQuiz) {
 			http.Error(w, "no_quiz", http.StatusNotFound)
@@ -278,4 +278,74 @@ func GetHint(w http.ResponseWriter, r *http.Request) {
 		"index": req.Index,
 		"hint":  hint,
 	})
+}
+
+// ==== Multiple Choice Quiz Endpoint ====
+
+type MultipleChoiceQuizResp struct {
+	ID        string `json:"id"`
+	Answer    string `json:"answer"`
+	Hint1     string `json:"hint1"`
+	Hint2     string `json:"hint2"`
+	HintCount int    `json:"hintCount"`
+	Token     string `json:"token"`
+	Exp       int64  `json:"exp"`
+}
+
+// GetQuizForMultipleChoice returns quiz data with answer for multiple-choice games
+func GetQuizForMultipleChoice(w http.ResponseWriter, r *http.Request) {
+	levelStr := r.URL.Query().Get("level")
+	category := r.URL.Query().Get("category")
+
+	level, err := strconv.Atoi(levelStr)
+	if err != nil || level < 1 {
+		level = 1
+	}
+
+	ctx := r.Context()
+	quizzes, err := db.GetQuizzes(ctx, level, category)
+	if err != nil {
+		log.Printf("Error fetching quizzes: %v", err)
+		http.Error(w, "cannot fetch quiz", http.StatusInternalServerError)
+		return
+	}
+
+	if len(quizzes) == 0 {
+		log.Printf("No quizzes found for level=%d, category=%s", level, category)
+		http.Error(w, "no quiz available", http.StatusNotFound)
+		return
+	}
+
+	// Randomly select a quiz
+	quiz := quizzes[rand.Intn(len(quizzes))]
+
+	// Generate secure ID and token
+	id, err := randomID()
+	if err != nil {
+		log.Printf("Error generating ID: %v", err)
+		http.Error(w, "cannot generate quiz", http.StatusInternalServerError)
+		return
+	}
+
+	now := time.Now()
+	exp := now.Add(60 * time.Second).Unix()
+
+	// Create token for this quiz
+	secret := getSecret()
+	tokenData := quiz.Answer + "|" + id + "|" + strconv.FormatInt(exp, 10)
+	token := sign(secret, tokenData)
+
+	// Return quiz data with answer for multiple-choice games
+	resp := MultipleChoiceQuizResp{
+		ID:        id,
+		Answer:    quiz.Answer,
+		Hint1:     quiz.Hint1,
+		Hint2:     quiz.Hint2,
+		HintCount: 2,
+		Token:     token,
+		Exp:       exp,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

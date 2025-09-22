@@ -170,6 +170,59 @@ func GetAllQuizLite(ctx context.Context) ([]QuizLite, error) {
 	return out, rows.Err()
 }
 
+// GetQuizzes fetches quizzes by level and category for multiple-choice games
+func GetQuizzes(ctx context.Context, level int, category string) ([]QuizRow, error) {
+	if pool == nil {
+		return nil, ErrNotInitialized
+	}
+
+	// Determine tier based on level (same logic as poolTierForLevel)
+	tier := 1
+	if level >= 4 && level < 10 {
+		tier = 2
+	} else if level >= 10 {
+		tier = 3
+	}
+
+	var rows pgx.Rows
+	var err error
+
+	// Query with category filter if provided
+	if category != "" {
+		rows, err = pool.Query(ctx, `
+			SELECT answer, hint1, hint2, tier
+			FROM public.quizzes
+			WHERE active = TRUE AND tier = $1 AND category = $2
+			ORDER BY random()
+			LIMIT 50
+		`, tier, category)
+	} else {
+		rows, err = pool.Query(ctx, `
+			SELECT answer, hint1, hint2, tier
+			FROM public.quizzes
+			WHERE active = TRUE AND tier = $1
+			ORDER BY random()
+			LIMIT 50
+		`, tier)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var quizzes []QuizRow
+	for rows.Next() {
+		var q QuizRow
+		if err := rows.Scan(&q.Answer, &q.Hint1, &q.Hint2, &q.Tier); err != nil {
+			return nil, err
+		}
+		quizzes = append(quizzes, q)
+	}
+
+	return quizzes, rows.Err()
+}
+
 // ===== Feedbacks =====
 
 type FeedbackRow struct {
