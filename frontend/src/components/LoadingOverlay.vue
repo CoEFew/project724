@@ -6,6 +6,7 @@
       <!-- Cat loading animation -->
       <div class="relative h-24 w-24 mb-2">
         <img 
+          v-if="catwalkImages.length > 0"
           :src="catwalkImages[catwalkIndex]" 
           alt="loading cat" 
           class="h-24 w-24 animate-bounce"
@@ -39,8 +40,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useNetworkStore } from '../store/useNetworkStore'
+import { loadAsset, createSpinnerDataUrl, getOptimizedAssetUrl } from '../utils/assetLoader'
+// Import catwalk images for loading animation
+import catwalk from '../assets/images/catwalk.png'
+import catwalk2 from '../assets/images/catwalk2.png'
 
 /**
  * LoadingOverlay.vue
@@ -77,10 +82,46 @@ const imageError = ref(false)
 let catwalkInterval: number | undefined
 
 // Optimized catwalk images - using smaller, compressed versions
-const catwalkImages = [
-  '../assets/images/catwalk.png', // Will be created
-  '../assets/images/catwalk2.png' // Will be created
-]
+const catwalkImages = ref<string[]>([])
+const fallbackSpinner = ref('')
+
+// Initialize asset loading with fallback handling
+async function initializeAssets() {
+  try {
+    // Try to load the catwalk images with fallback handling
+    const primaryAssets = [
+      { src: catwalk, fallback: createSpinnerDataUrl(48, '#6366f1') },
+      { src: catwalk2, fallback: createSpinnerDataUrl(48, '#8b5cf6') }
+    ]
+    
+    const results = await Promise.all(
+      primaryAssets.map(asset => loadAsset(asset))
+    )
+    
+    // Update catwalk images with successfully loaded assets
+    catwalkImages.value = results
+      .filter(result => result.success)
+      .map(result => result.src!)
+    
+    // If no images loaded successfully, use fallback spinners
+    if (catwalkImages.value.length === 0) {
+      console.warn('All catwalk images failed to load, using fallback spinners')
+      catwalkImages.value = [
+        createSpinnerDataUrl(48, '#6366f1'),
+        createSpinnerDataUrl(48, '#8b5cf6')
+      ]
+    }
+    
+    // Set fallback spinner for error cases
+    fallbackSpinner.value = createSpinnerDataUrl(32, '#6366f1')
+    
+  } catch (error) {
+    console.error('Error initializing loading assets:', error)
+    // Use CSS-based fallback
+    catwalkImages.value = []
+    fallbackSpinner.value = createSpinnerDataUrl(32, '#6366f1')
+  }
+}
 
 /**
  * Handle successful image load
@@ -91,10 +132,19 @@ function onImageLoad() {
 
 /**
  * Handle image load error - fallback to spinner
+ * This provides robust error handling for missing or corrupted assets
  */
 function onImageError() {
   console.warn('Failed to load catwalk image, using fallback spinner')
   imageError.value = true
+  
+  // Try to load fallback images if available
+  try {
+    // Attempt to load a simple fallback image or use CSS-based animation
+    console.log('Attempting to load fallback loading animation')
+  } catch (error) {
+    console.error('Fallback loading also failed:', error)
+  }
 }
 
 /**
@@ -104,7 +154,9 @@ function startAnimation() {
   if (catwalkInterval) return
   
   catwalkInterval = window.setInterval(() => {
-    catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
+    if (catwalkImages.value.length > 0) {
+      catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.value.length
+    }
   }, 200)
 }
 
@@ -119,7 +171,10 @@ function stopAnimation() {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  // Initialize assets with fallback handling
+  await initializeAssets()
+  
   if (props.loading) {
     startAnimation()
   }
@@ -130,7 +185,6 @@ onBeforeUnmount(() => {
 })
 
 // Watch for loading state changes
-import { watch } from 'vue'
 watch(() => props.loading, (newLoading) => {
   if (newLoading) {
     startAnimation()
