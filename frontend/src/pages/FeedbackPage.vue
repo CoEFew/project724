@@ -9,18 +9,7 @@
     </div>
 
     <!-- Loading overlay -->
-    <!-- Loading overlay -->
-    <div v-if="loading"
-      class="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[90]">
-      <div class="flex flex-col items-center">
-        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-2 animate-bounce" />
-        <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
-        <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
-        <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน
-          ช้ากว่าปกติเล็กน้อย</span>
-        <!-- <span class="mt-1 text-xs text-rose-200/80" v-if="net.lastError">พบข้อผิดพลาดเครือข่าย: {{ net.lastError }}</span> -->
-      </div>
-    </div>
+    <LoadingOverlay :loading="loading" />
 
 
     <!-- Page container -->
@@ -143,8 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import catwalk from '../assets/images/catwalk.png'
-import catwalk2 from '../assets/images/catwalk2.png'
+import LoadingOverlay from '../components/LoadingOverlay.vue'
 import api from '../services/api'
 import { useRouter } from 'vue-router'
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
@@ -157,9 +145,6 @@ let readinessTimer: number | undefined
 const router = useRouter()
 
 const loading = ref(true)
-const catwalkImages = [catwalk, catwalk2]
-const catwalkIndex = ref(0)
-let catwalkInterval: number | undefined
 
 const name = ref('')
 const contact = ref('')
@@ -221,10 +206,7 @@ const goBack = () => router.back()
 onMounted(async () => {
   document.title = 'PETTEXT - Feedback'
 
-  // ไอคอนโหลดสลับรูป
-  catwalkInterval = window.setInterval(() => {
-    catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
-  }, 200)
+  // Initialize loading state
 
   // ✅ รอความพร้อมของ API เหมือน DocumentsPage.vue
   const { healthOk, initialOk } = await waitApiReadyAndLoadInitial()
@@ -249,7 +231,6 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   if (readinessTimer) clearInterval(readinessTimer)
-  if (catwalkInterval) clearInterval(catwalkInterval)
 })
 </script>
 

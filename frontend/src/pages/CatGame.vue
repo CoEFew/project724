@@ -10,13 +10,7 @@
     </div>
 
     <!-- Loading overlay -->
-    <div v-if="loading"
-         class="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[120]">
-      <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-2 animate-bounce" />
-      <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
-      <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
-      <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน ช้ากว่าปกติเล็กน้อย</span>
-    </div>
+    <LoadingOverlay :loading="loading" />
 
     <!-- Rotate-warning overlay for small screens (force landscape UX) -->
     <div v-if="isPortrait"
@@ -348,8 +342,7 @@ import api from '../services/api'
 import { useRouter } from 'vue-router'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'
-import catwalk from '../assets/images/catwalk.png'
-import catwalk2 from '../assets/images/catwalk2.png'
+import LoadingOverlay from '../components/LoadingOverlay.vue'
 
 /* ======= Network store & router ======= */
 const net = useNetworkStore()
@@ -358,9 +351,6 @@ const goBack = () => router.back()
 
 /* ======= Loading / Orientation ======= */
 const loading = ref(true)
-const catwalkImages = [catwalk, catwalk2]
-const catwalkIndex = ref(0)
-let catwalkInterval: number | undefined
 let readinessTimer: number | undefined
 
 const isPortrait = ref(false)
@@ -833,8 +823,7 @@ onMounted(async () => {
 
   document.title = 'PETTEXT - CatGame'
 
-  // loading icon animation
-  catwalkInterval = window.setInterval(() => { catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length }, 200)
+  // Initialize loading state
 
   const { healthOk, initialOk } = await waitApiReadyAndLoadInitial()
   const boot = async () => { loading.value = false; await hardReset(); loadScores() }
@@ -854,7 +843,6 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', updateOrientation)
   if (readinessTimer) clearInterval(readinessTimer)
-  if (catwalkInterval) clearInterval(catwalkInterval)
 })
 
 /* ======= How-to examples ======= */

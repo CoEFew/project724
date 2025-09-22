@@ -1,18 +1,7 @@
 <template>
   <div class="p-8 relative min-h-screen overflow-visible uppercase">
-    <!-- Loading overlay: แมวเด้งดึ๋ง + สลับหน้า–หลัง (ไม่เปลี่ยน src) -->
-    <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-      <div class="flex flex-col items-center">
-        <div class="relative h-24 w-24 mb-4 animate-bounce">
-          <img :src="catwalk" alt="loading cat A" class="sprite" :class="catLoadFrontIsA ? 'front' : 'back'" />
-          <img :src="catwalk2" alt="loading cat B" class="sprite" :class="catLoadFrontIsA ? 'back' : 'front'" />
-        </div>
-        <span class="text-lg text-blue-700 font-semibold">•Few Surasak•</span>
-        <span class="text-lg text-blue-700 font-semibold">กำลังโหลด...</span>
-        <span class="mt-1 text-xs text-blue-600" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
-        <span class="mt-1 text-xs text-amber-600" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน ช้ากว่าปกติเล็กน้อย</span>
-      </div>
-    </div>
+    <!-- Loading overlay -->
+    <LoadingOverlay :loading="loading" message="•Few Surasak•" />
 
     <!-- ผึ้งบินแบบ sine + draggable -->
     <transition name="float-text">
@@ -117,6 +106,7 @@ import bee from '../assets/images/bee.png'
 import bee2 from '../assets/images/bee2.png'
 import catwalk from '../assets/images/catwalk.png'
 import catwalk2 from '../assets/images/catwalk2.png'
+import LoadingOverlay from '../components/LoadingOverlay.vue'
 import dog from '../assets/images/dog.png'
 import dog2 from '../assets/images/dog2.png'
 import picture from '../assets/images/cat2.png'
@@ -333,17 +323,14 @@ function handleCatClick() {
   setTimeout(() => (showCatTooltip.value = false), 5000)
 }
 
-/* ---------- Loading: เด้งดึ๋ง + โหลดครั้งเดียว ---------- */
-const catLoadFrontIsA = ref(true) // ใช้เฉพาะ overlay loading
-let catLoadSwapInterval: number | undefined
+/* ---------- Loading state ---------- */
 
 /* ---------- lifecycle ---------- */
 onMounted(async () => {
   document.title = 'PETTEXT - Home'
-  preload([catwalk, catwalk2, bee, bee2, dog, dog2, picture, picture2, polabear, polabear2, otter, otter2])
+  preload([bee, bee2, dog, dog2, picture, picture2, polabear, polabear2, otter, otter2])
 
-  // loading: เด้ง + swap หน้า–หลัง (ไม่เปลี่ยน src)
-  catLoadSwapInterval = window.setInterval(() => (catLoadFrontIsA.value = !catLoadFrontIsA.value), 200)
+  // Initialize loading state
 
   placeBeeCenter()
   rafBee = requestAnimationFrame(animateBee)
@@ -367,7 +354,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (rafBee) cancelAnimationFrame(rafBee)
   if (rafCat) cancelAnimationFrame(rafCat)
-  if (catLoadSwapInterval) clearInterval(catLoadSwapInterval)
 })
 </script>
 

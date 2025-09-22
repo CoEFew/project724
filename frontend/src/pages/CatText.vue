@@ -104,12 +104,7 @@
     </main>
 
     <!-- Loader (ทับทั้งจอ แต่เฉพาะตอนโหลด) -->
-    <div v-if="loading" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div class="flex flex-col items-center">
-        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-4 animate-bounce" />
-        <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
-      </div>
-    </div>
+    <LoadingOverlay :loading="loading" />
 
     <!-- ตกแต่งมุม (ซ่อนบนจอเล็ก และลด z เพื่อไม่บังคอนเทนต์) -->
     <img
@@ -177,8 +172,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 /** assets (ระวังชื่อไฟล์ให้ตรงกับของจริงในโปรเจกต์) */
-import catwalk from '../assets/images/catwalk.png';
-import catwalk2 from '../assets/images/catwalk2.png';
+import LoadingOverlay from '../components/LoadingOverlay.vue';
 import paw from '../assets/images/cat.png';
 import catBadge from '../assets/images/catwalk.png';
 import dogBadge from '../assets/images/catwalk2.png';
@@ -187,15 +181,10 @@ import dogCorner from '../assets/images/dog4.png';
 import lock from '../assets/images/dog.png';
 
 const loading = ref(true);
-const catwalkImages = [catwalk, catwalk2];
-const catwalkIndex = ref(0);
-let catwalkInterval: number | undefined;
 
 onMounted(() => {
   document.title = 'PETTEXT - CatText';
-  catwalkInterval = setInterval(() => {
-    catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length;
-  }, 200);
+  
   setTimeout(() => {
     loading.value = false;
   }, 800);

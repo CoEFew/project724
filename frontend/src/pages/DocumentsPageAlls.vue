@@ -35,15 +35,7 @@ Technical Implementation:
         </div>
 
         <!-- Loading -->
-        <div v-if="loading"
-            class="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[90]">
-            <div class="flex flex-col items-center">
-                <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
-                <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
-                <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน
-                    ช้ากว่าปกติเล็กน้อย</span>
-            </div>
-        </div>
+        <LoadingOverlay :loading="loading" />
 
         <div class="w-full max-w-6xl mx-auto px-4 py-8" v-show="!loading">
             <!-- Header -->
@@ -474,6 +466,7 @@ Technical Implementation:
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, defineComponent, h, type PropType } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import LoadingOverlay from '../components/LoadingOverlay.vue'
 import api from '../services/api'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { waitApiReadyAndLoadInitial } from '../composables/useApiReadiness'

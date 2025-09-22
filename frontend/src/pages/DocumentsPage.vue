@@ -9,16 +9,7 @@
     </div>
 
     <!-- Loading overlay -->
-    <div v-if="loading"
-      class="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[90]">
-      <div class="flex flex-col items-center">
-        <img :src="catwalkImages[catwalkIndex]" alt="loading cat" class="h-24 w-24 mb-2 animate-bounce" />
-        <span class="text-base md:text-lg text-indigo-100 font-semibold">กำลังโหลด...</span>
-        <span class="mt-1 text-xs text-indigo-100/70" v-if="net.hasPending">กำลังเชื่อมต่อเซิร์ฟเวอร์…</span>
-        <span class="mt-1 text-xs text-amber-200/80" v-if="net.isStalled">เซิร์ฟเวอร์กำลังเริ่มทำงาน
-          ช้ากว่าปกติเล็กน้อย</span>
-      </div>
-    </div>
+    <LoadingOverlay :loading="loading" />
 
     <!-- Page container -->
     <div class="w-full max-w-6xl mx-auto px-4 py-8" v-show="!loading">
@@ -304,8 +295,7 @@
 
 <script setup lang="ts">
 /* ===================== Imports ===================== */
-import catwalk from '../assets/images/catwalk.png'
-import catwalk2 from '../assets/images/catwalk2.png'
+import LoadingOverlay from '../components/LoadingOverlay.vue'
 import api from '../services/api'
 import {
   ref, onMounted, watch, computed, onBeforeUnmount, nextTick,
@@ -328,11 +318,8 @@ const TOP_LIMIT = 10
 const ROUND_SECONDS = 60
 const CHANGE_LIMIT = 5
 
-// loading animation
+// loading state
 const loading = ref(true)
-const catwalkImages = [catwalk, catwalk2]
-const catwalkIndex = ref(0)
-let catwalkInterval: number | undefined
 
 // game states
 const selectedCategory = ref('')
@@ -826,9 +813,6 @@ function showHint() {
 /* ===================== Lifecycle ===================== */
 onMounted(async () => {
   document.title = 'PETTEXT - Context Quest'
-  catwalkInterval = window.setInterval(() => {
-    catwalkIndex.value = (catwalkIndex.value + 1) % catwalkImages.length
-  }, 200)
 
   // Validate category selection
   if (!selectedCategory.value) {
@@ -862,7 +846,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (intervalId) clearInterval(intervalId as number)
-  if (catwalkInterval) clearInterval(catwalkInterval as number)
   window.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
