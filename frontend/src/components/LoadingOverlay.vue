@@ -78,8 +78,8 @@ let catwalkInterval: number | undefined
 
 // Optimized catwalk images - using smaller, compressed versions
 const catwalkImages = [
-  '/src/assets/images/catwalk.png', // Will be created
-  '/src/assets/images/catwalk2.png' // Will be created
+  '../assets/images/catwalk.png', // Will be created
+  '../assets/images/catwalk2.png' // Will be created
 ]
 
 /**
